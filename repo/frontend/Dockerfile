@@ -22,7 +22,7 @@ COPY backend/Cargo.toml    backend/Cargo.toml
 
 RUN mkdir -p backend/src && echo "fn main() {}" > backend/src/main.rs
 
-RUN dx build --release
+RUN dx build --release --package frontend
 
 FROM nginx:alpine
 
