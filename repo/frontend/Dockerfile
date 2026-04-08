@@ -11,7 +11,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN rustup target add wasm32-unknown-unknown
 
 # Download pre-built dx CLI binary (avoids OOM from compiling dioxus-cli from source)
-RUN curl -L https://github.com/DioxusLabs/dioxus/releases/download/v0.6.3/dx-x86_64-unknown-linux-gnu.tar.gz \
+RUN curl -L https://github.com/DioxusLabs/dioxus/releases/download/v0.6.3/dx-x86_64-unknown-linux-gnu-v0.6.3.tar.gz \
     | tar -xz -C /usr/local/bin
 
 COPY Cargo.toml Cargo.lock ./
