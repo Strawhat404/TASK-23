@@ -1,0 +1,8 @@
+target/
+.git/
+.tmp/
+sessions/
+docs/
+*.md
+.gitignore
+.dockerignore

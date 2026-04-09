@@ -24,7 +24,7 @@ pub async fn get_store_hours(pool: &MySqlPool) -> Vec<StoreHours> {
 
 pub async fn get_tax_config(pool: &MySqlPool) -> Option<SalesTaxConfig> {
     let row = sqlx::query(
-        "SELECT id, tax_name, rate, is_active FROM sales_tax_config WHERE is_active = 1 LIMIT 1"
+        "SELECT id, tax_name, CAST(rate AS DOUBLE) AS rate, is_active FROM sales_tax_config WHERE is_active = 1 LIMIT 1"
     )
     .fetch_optional(pool)
     .await

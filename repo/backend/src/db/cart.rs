@@ -71,7 +71,7 @@ pub struct CartItemRow {
 
 pub async fn get_cart_items(pool: &MySqlPool, cart_id: i64) -> Vec<CartItemRow> {
     let rows = sqlx::query(
-        "SELECT ci.id, ci.cart_id, ci.sku_id, ci.quantity, ci.unit_price,
+        "SELECT ci.id, ci.cart_id, ci.sku_id, ci.quantity, CAST(ci.unit_price AS DOUBLE) AS unit_price,
                 sk.sku_code, sp.name_en AS spu_name_en, sp.name_zh AS spu_name_zh
          FROM cart_items ci
          JOIN sku sk ON sk.id = ci.sku_id

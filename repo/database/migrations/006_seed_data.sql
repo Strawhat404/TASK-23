@@ -145,10 +145,10 @@ INSERT INTO `subjects` (`name_en`, `name_zh`, `description_en`, `description_zh`
     ('Customer Service',   '客户服务',   'Best practices for providing excellent customer experiences.',   '提供卓越客户体验的最佳实践。');
 
 -- -----------------------------------------------------------
--- 8. Admin User (password: admin, bcrypt hash)
+-- 8. Admin User (password: AdminPass123!)
 -- -----------------------------------------------------------
 INSERT INTO `users` (`id`, `username`, `password_hash`, `display_name`, `email`, `preferred_locale`) VALUES
-    (1, 'admin', '$2a$12$LJ3m4ys3Gzl0E3wMN/W.5ezFh.cYJAKNMGl1FYkQJO7RqTpNzLyXa', 'Administrator', 'admin@brewflow.local', 'en');
+    (1, 'admin', '$2b$12$sfKp/ZnimC2SQ8o74NZ49uZw8FpYMHIAJBGfF3ly5pI1rs6cDuqw2', 'Administrator', 'admin@brewflow.local', 'en');
 
 -- Assign Admin role to admin user
 INSERT INTO `user_roles` (`user_id`, `role_id`)

@@ -35,6 +35,7 @@ services:
       # Override Rocket.toml's 127.0.0.1 so the container accepts external traffic
       ROCKET_ADDRESS: "0.0.0.0"
       ROCKET_PORT: "8000"
+      ROCKET_SECRET_KEY: ${ROCKET_SECRET_KEY:-S3sjmRGbozYcx0SdKnlUDODccbBK2DcwOXzK4GT4zL4=}
       RUST_LOG: ${RUST_LOG:-info}
     ports:
       - "8000:8000"

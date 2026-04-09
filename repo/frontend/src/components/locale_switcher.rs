@@ -9,10 +9,22 @@ pub fn LocaleSwitcher(current_locale: String) -> Element {
     let is_en = current_locale == "en";
     let is_zh = current_locale == "zh";
 
+    let en_class = if is_en {
+        "px-2 py-1 rounded text-xs bg-white/30 text-white border border-white/50 cursor-default"
+    } else {
+        "px-2 py-1 rounded text-xs bg-white/15 text-white/70 border border-transparent cursor-pointer hover:bg-white/25 hover:text-white transition-all"
+    };
+
+    let zh_class = if is_zh {
+        "px-2 py-1 rounded text-xs bg-white/30 text-white border border-white/50 cursor-default"
+    } else {
+        "px-2 py-1 rounded text-xs bg-white/15 text-white/70 border border-transparent cursor-pointer hover:bg-white/25 hover:text-white transition-all"
+    };
+
     rsx! {
-        div { class: "locale-switcher",
+        div { class: "flex gap-1",
             button {
-                class: if is_en { "locale-btn locale-btn-active" } else { "locale-btn" },
+                class: "{en_class}",
                 disabled: is_en,
                 onclick: move |_| {
                     let mut s = state.write();
@@ -22,7 +34,7 @@ pub fn LocaleSwitcher(current_locale: String) -> Element {
                 "EN"
             }
             button {
-                class: if is_zh { "locale-btn locale-btn-active" } else { "locale-btn" },
+                class: "{zh_class}",
                 disabled: is_zh,
                 onclick: move |_| {
                     let mut s = state.write();

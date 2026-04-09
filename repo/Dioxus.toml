@@ -4,15 +4,16 @@ default_platform = "web"
 
 [web.app]
 title = "BrewFlow - Offline Retail & Training Suite"
+base_path = ""
 
 [web.watcher]
 watch_path = ["src", "shared"]
 reload_html = true
 
 [web.resource]
-style = ["assets/main.css"]
+style = []
 script = []
 
 [web.resource.dev]
-style = ["assets/main.css"]
+style = []
 script = []

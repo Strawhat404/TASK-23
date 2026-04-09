@@ -1,9 +1,6 @@
 use dioxus::prelude::*;
 use shared::dto::PickupSlot;
 
-/// Renders a grid of 15-minute pickup time slots.
-/// Available slots are clickable; unavailable slots are grayed out.
-/// The selected slot is highlighted. Calls `on_select` with the chosen slot.
 #[component]
 pub fn SlotPicker(
     slots: Vec<PickupSlot>,
@@ -18,9 +15,9 @@ pub fn SlotPicker(
     let label = t.t(loc, "label.pickup_time");
 
     rsx! {
-        div { class: "slot-picker",
-            h3 { class: "slot-picker-title", "{label}" }
-            div { class: "slot-picker-grid",
+        div {
+            h3 { class: "text-lg font-semibold mb-3 text-gray-800", "{label}" }
+            div { class: "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2",
                 for slot in slots.iter() {
                     {
                         let is_available = slot.available;
@@ -30,14 +27,13 @@ pub fn SlotPicker(
                             .unwrap_or(false);
 
                         let slot_class = if !is_available {
-                            "slot-cell slot-unavailable"
+                            "py-2.5 px-2 text-center border border-gray-200 rounded-lg text-sm bg-gray-100 text-gray-400 cursor-not-allowed line-through"
                         } else if is_selected {
-                            "slot-cell slot-selected"
+                            "py-2.5 px-2 text-center border-2 border-primary rounded-lg text-sm bg-primary text-white font-medium cursor-pointer"
                         } else {
-                            "slot-cell slot-available"
+                            "py-2.5 px-2 text-center border border-gray-200 rounded-lg text-sm bg-white text-gray-700 cursor-pointer hover:border-primary hover:bg-primary/5 transition-all"
                         };
 
-                        // Format time display: show just HH:MM from the ISO string
                         let display_time = format_slot_time(&slot.start);
                         let slot_clone = slot.clone();
 
@@ -56,7 +52,7 @@ pub fn SlotPicker(
                 }
             }
             if slots.is_empty() {
-                p { class: "slot-picker-empty",
+                p { class: "text-center py-8 text-gray-400",
                     "{t.t(loc, \"error.slot_unavailable\")}"
                 }
             }
@@ -64,16 +60,12 @@ pub fn SlotPicker(
     }
 }
 
-/// Extract a human-readable time (HH:MM) from an ISO-like datetime string.
 fn format_slot_time(datetime_str: &str) -> String {
-    // Expected format: "2026-04-04T14:30:00" or similar
     if let Some(t_pos) = datetime_str.find('T') {
         let time_part = &datetime_str[t_pos + 1..];
-        // Take HH:MM
         if time_part.len() >= 5 {
             return time_part[..5].to_string();
         }
     }
-    // Fallback: return as-is
     datetime_str.to_string()
 }

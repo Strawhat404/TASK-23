@@ -47,37 +47,37 @@ pub fn AdminPage(locale: String) -> Element {
     let page_title = t.t(&loc, "nav.admin");
 
     rsx! {
-        div { class: "page page-admin",
+        div { class: "min-h-screen flex flex-col bg-[#fefcf9]",
             Navbar { locale: locale.clone() }
 
-            main { class: "main-content",
-                section { class: "section",
-                    h2 { class: "section-title", "{page_title}" }
+            main { class: "flex-1 max-w-7xl mx-auto px-4 py-8 w-full",
+                section { class: "mb-8",
+                    h2 { class: "text-2xl font-bold mb-5 text-gray-800", "{page_title}" }
 
-                    div { class: "admin-hub-grid",
+                    div { class: "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4",
                         Link {
                             to: crate::Route::QuestionBank { locale: locale.clone() },
-                            class: "admin-hub-card",
-                            div { class: "admin-hub-icon", "\u{1f4da}" }
+                            class: "flex flex-col items-center p-6 bg-white rounded-xl shadow hover:shadow-md transition-shadow no-underline text-gray-800 text-center",
+                            div { class: "text-3xl mb-2", "\u{1f4da}" }
                             h3 { "{t.t(&loc, \"page.question_bank\")}" }
                             p { if loc == "zh" { "\u{7ba1}\u{7406}\u{9898}\u{5e93}" } else { "Manage question bank" } }
                         }
                         Link {
                             to: crate::Route::ImportQuestions { locale: locale.clone() },
-                            class: "admin-hub-card",
-                            div { class: "admin-hub-icon", "\u{1f4e5}" }
+                            class: "flex flex-col items-center p-6 bg-white rounded-xl shadow hover:shadow-md transition-shadow no-underline text-gray-800 text-center",
+                            div { class: "text-3xl mb-2", "\u{1f4e5}" }
                             h3 { "{t.t(&loc, \"btn.import\")}" }
                             p { if loc == "zh" { "\u{4ece}CSV\u{5bfc}\u{5165}\u{9898}\u{76ee}" } else { "Import questions from CSV" } }
                         }
                         Link {
                             to: crate::Route::GenerateExam { locale: locale.clone() },
-                            class: "admin-hub-card",
-                            div { class: "admin-hub-icon", "\u{2699}" }
+                            class: "flex flex-col items-center p-6 bg-white rounded-xl shadow hover:shadow-md transition-shadow no-underline text-gray-800 text-center",
+                            div { class: "text-3xl mb-2", "\u{2699}" }
                             h3 { "{t.t(&loc, \"btn.generate\")}" }
                             p { if loc == "zh" { "\u{751f}\u{6210}\u{65b0}\u{8003}\u{8bd5}" } else { "Generate new exam" } }
                         }
                         div { class: "admin-hub-card admin-hub-card-info",
-                            div { class: "admin-hub-icon", "\u{1f465}" }
+                            div { class: "text-3xl mb-2", "\u{1f465}" }
                             h3 { if loc == "zh" { "\u{7528}\u{6237}\u{7ba1}\u{7406}" } else { "User Management" } }
                             p { if loc == "zh" { "\u{67e5}\u{770b}\u{7528}\u{6237}\u{6982}\u{89c8}" } else { "View user overview" } }
                         }
@@ -110,7 +110,7 @@ pub fn QuestionBankPage(locale: String) -> Element {
         let session_cookie = app_state().auth.session_cookie.clone();
         async move {
             let mut req = reqwest::Client::new()
-                .get(&format!("{}/exam/subjects", crate::API_BASE));
+                .get(&format!("{}/exam/subjects", &crate::api_base()));
             if let Some(ref sc) = session_cookie {
                 req = req.header("Cookie", format!("brewflow_session={}", sc));
             }
@@ -130,7 +130,7 @@ pub fn QuestionBankPage(locale: String) -> Element {
         async move {
             let mut url = format!(
                 "{}/exam/questions?page={}&per_page={}",
-                crate::API_BASE, page, per_page
+                &crate::api_base(), page, per_page
             );
             if !search.is_empty() {
                 url.push_str(&format!("&q={}", search));
@@ -159,20 +159,20 @@ pub fn QuestionBankPage(locale: String) -> Element {
     let search_placeholder = if loc == "zh" { "\u{641c}\u{7d22}\u{9898}\u{76ee}..." } else { "Search questions..." };
 
     rsx! {
-        div { class: "page page-question-bank",
+        div { class: "min-h-screen flex flex-col bg-[#fefcf9]",
             Navbar { locale: locale.clone() }
 
-            main { class: "main-content",
-                section { class: "section",
-                    h2 { class: "section-title", "{page_title}" }
+            main { class: "flex-1 max-w-7xl mx-auto px-4 py-8 w-full",
+                section { class: "mb-8",
+                    h2 { class: "text-2xl font-bold mb-5 text-gray-800", "{page_title}" }
 
                     // Filter bar
-                    div { class: "qb-filters",
+                    div { class: "grid grid-cols-1 md:grid-cols-3 gap-4 mb-6",
                         // Search input
-                        div { class: "form-group",
+                        div { class: "mb-4",
                             input {
                                 r#type: "text",
-                                class: "form-input",
+                                class: "w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 bg-white",
                                 placeholder: "{search_placeholder}",
                                 value: "{search_query}",
                                 oninput: move |evt| {
@@ -183,10 +183,10 @@ pub fn QuestionBankPage(locale: String) -> Element {
                         }
 
                         // Subject filter
-                        div { class: "form-group",
+                        div { class: "mb-4",
                             label { "{subject_label}" }
                             select {
-                                class: "form-select",
+                                class: "w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-primary bg-white",
                                 onchange: move |evt| {
                                     let val = evt.value();
                                     subject_filter.set(val.parse::<i64>().ok());
@@ -207,10 +207,10 @@ pub fn QuestionBankPage(locale: String) -> Element {
                         }
 
                         // Difficulty filter
-                        div { class: "form-group",
+                        div { class: "mb-4",
                             label { "{difficulty_label}" }
                             select {
-                                class: "form-select",
+                                class: "w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-primary bg-white",
                                 onchange: move |evt| {
                                     difficulty_filter.set(evt.value());
                                     current_page.set(1);
@@ -228,8 +228,8 @@ pub fn QuestionBankPage(locale: String) -> Element {
                         Some(Ok(paginated)) => {
                             let total_pages = ((paginated.total as f64) / (per_page as f64)).ceil() as i32;
                             rsx! {
-                                div { class: "qb-table-wrapper",
-                                    table { class: "qb-table",
+                                div { class: "overflow-x-auto",
+                                    table { class: "w-full border-collapse",
                                         thead {
                                             tr {
                                                 th { "ID" }
@@ -257,7 +257,7 @@ pub fn QuestionBankPage(locale: String) -> Element {
                                                     rsx! {
                                                         tr {
                                                             td { "{q.id}" }
-                                                            td { class: "qb-question-preview", "{preview}" }
+                                                            td { class: "max-w-md truncate", "{preview}" }
                                                             td { "{q.question_type}" }
                                                             td { "{q.difficulty}" }
                                                             td { "{subject}" }
@@ -270,26 +270,26 @@ pub fn QuestionBankPage(locale: String) -> Element {
                                 }
 
                                 // Pagination
-                                div { class: "pagination",
-                                    span { class: "pagination-info",
+                                div { class: "flex justify-center items-center gap-4 mt-6",
+                                    span { class: "text-sm text-gray-500",
                                         if loc == "zh" {
                                             "\u{5171} {paginated.total} \u{9898}"
                                         } else {
                                             "{paginated.total} questions total"
                                         }
                                     }
-                                    div { class: "pagination-controls",
+                                    div { class: "flex items-center gap-3",
                                         button {
-                                            class: "btn btn-sm",
+                                            class: "inline-flex items-center justify-center px-3 py-1.5 text-xs rounded-lg font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 transition-all disabled:opacity-50 disabled:cursor-not-allowed",
                                             disabled: current_page() <= 1,
                                             onclick: move |_| current_page.set(current_page() - 1),
                                             if loc == "zh" { "\u{4e0a}\u{4e00}\u{9875}" } else { "Prev" }
                                         }
-                                        span { class: "pagination-current",
+                                        span { class: "text-sm font-medium",
                                             "{current_page()} / {total_pages}"
                                         }
                                         button {
-                                            class: "btn btn-sm",
+                                            class: "inline-flex items-center justify-center px-3 py-1.5 text-xs rounded-lg font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 transition-all disabled:opacity-50 disabled:cursor-not-allowed",
                                             disabled: current_page() >= total_pages,
                                             onclick: move |_| current_page.set(current_page() + 1),
                                             if loc == "zh" { "\u{4e0b}\u{4e00}\u{9875}" } else { "Next" }
@@ -299,10 +299,10 @@ pub fn QuestionBankPage(locale: String) -> Element {
                             }
                         },
                         Some(Err(e)) => rsx! {
-                            div { class: "alert alert-error", "Error: {e}" }
+                            div { class: "bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm mb-4", "Error: {e}" }
                         },
                         None => rsx! {
-                            div { class: "loading-spinner", p { "Loading..." } }
+                            div { class: "text-center py-12 text-gray-400", p { "Loading..." } }
                         },
                     }
                 }
@@ -334,7 +334,7 @@ pub fn ImportQuestionsPage(locale: String) -> Element {
         let session_cookie = app_state().auth.session_cookie.clone();
         async move {
             let mut req = reqwest::Client::new()
-                .get(&format!("{}/exam/subjects", crate::API_BASE));
+                .get(&format!("{}/exam/subjects", &crate::api_base()));
             if let Some(ref sc) = session_cookie {
                 req = req.header("Cookie", format!("brewflow_session={}", sc));
             }
@@ -353,7 +353,7 @@ pub fn ImportQuestionsPage(locale: String) -> Element {
                 return Ok(Vec::<ChapterOption>::new());
             };
             let mut req = reqwest::Client::new()
-                .get(&format!("{}/exam/subjects/{}/chapters", crate::API_BASE, sid));
+                .get(&format!("{}/exam/subjects/{}/chapters", &crate::api_base(), sid));
             if let Some(ref sc) = session_cookie {
                 req = req.header("Cookie", format!("brewflow_session={}", sc));
             }
@@ -375,49 +375,49 @@ pub fn ImportQuestionsPage(locale: String) -> Element {
     };
 
     rsx! {
-        div { class: "page page-import-questions",
+        div { class: "min-h-screen flex flex-col bg-[#fefcf9]",
             Navbar { locale: locale.clone() }
 
-            main { class: "main-content",
-                section { class: "section",
-                    h2 { class: "section-title", "{page_title}" }
+            main { class: "flex-1 max-w-7xl mx-auto px-4 py-8 w-full",
+                section { class: "mb-8",
+                    h2 { class: "text-2xl font-bold mb-5 text-gray-800", "{page_title}" }
 
                     if let Some(err) = error_msg() {
-                        div { class: "alert alert-error", "{err}" }
+                        div { class: "bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm mb-4", "{err}" }
                     }
 
                     // Import result display
                     if let Some(result) = import_result() {
-                        div { class: "import-result-card",
+                        div { class: "bg-white rounded-xl shadow p-6 mb-6",
                             h3 { if loc == "zh" { "\u{5bfc}\u{5165}\u{7ed3}\u{679c}" } else { "Import Results" } }
-                            div { class: "import-stats",
-                                div { class: "import-stat import-stat-success",
-                                    span { class: "import-stat-count", "{result.imported_count}" }
-                                    span { class: "import-stat-label",
+                            div { class: "grid grid-cols-3 gap-4 mt-4",
+                                div { class: "text-center p-4 bg-green-50 rounded-lg",
+                                    span { class: "text-2xl font-bold", "{result.imported_count}" }
+                                    span { class: "text-sm text-gray-500",
                                         if loc == "zh" { "\u{5df2}\u{5bfc}\u{5165}" } else { "Imported" }
                                     }
                                 }
-                                div { class: "import-stat import-stat-skipped",
-                                    span { class: "import-stat-count", "{result.skipped_count}" }
-                                    span { class: "import-stat-label",
+                                div { class: "text-center p-4 bg-amber-50 rounded-lg",
+                                    span { class: "text-2xl font-bold", "{result.skipped_count}" }
+                                    span { class: "text-sm text-gray-500",
                                         if loc == "zh" { "\u{5df2}\u{8df3}\u{8fc7}" } else { "Skipped" }
                                     }
                                 }
                                 if !result.errors.is_empty() {
-                                    div { class: "import-stat import-stat-errors",
-                                        span { class: "import-stat-count", "{result.errors.len()}" }
-                                        span { class: "import-stat-label",
+                                    div { class: "text-center p-4 bg-red-50 rounded-lg",
+                                        span { class: "text-2xl font-bold", "{result.errors.len()}" }
+                                        span { class: "text-sm text-gray-500",
                                             if loc == "zh" { "\u{9519}\u{8bef}" } else { "Errors" }
                                         }
                                     }
                                 }
                             }
                             if !result.errors.is_empty() {
-                                div { class: "import-errors",
+                                div { class: "mt-4",
                                     h4 { if loc == "zh" { "\u{9519}\u{8bef}\u{8be6}\u{60c5}" } else { "Error Details" } }
-                                    ul { class: "import-error-list",
+                                    ul { class: "list-disc pl-5 text-sm text-red-600 space-y-1",
                                         for err in result.errors.iter() {
-                                            li { class: "import-error-item", "{err}" }
+                                            li { class: "", "{err}" }
                                         }
                                     }
                                 }
@@ -426,9 +426,9 @@ pub fn ImportQuestionsPage(locale: String) -> Element {
                     }
 
                     // Import form
-                    div { class: "import-form-card",
+                    div { class: "bg-white rounded-xl shadow p-6",
                         form {
-                            class: "import-form",
+                            class: "space-y-4",
                             onsubmit: move |evt| {
                                 evt.prevent_default();
                                 let Some(sid) = selected_subject() else {
@@ -454,7 +454,7 @@ pub fn ImportQuestionsPage(locale: String) -> Element {
                                     };
 
                                     let mut req = reqwest::Client::new()
-                                        .post(&format!("{}/exam/questions/import", crate::API_BASE))
+                                        .post(&format!("{}/exam/questions/import", &crate::api_base()))
                                         .json(&body);
                                     if let Some(ref sc) = session_cookie {
                                         req = req.header("Cookie", format!("brewflow_session={}", sc));
@@ -485,10 +485,10 @@ pub fn ImportQuestionsPage(locale: String) -> Element {
                             },
 
                             // Subject selector
-                            div { class: "form-group",
+                            div { class: "mb-4",
                                 label { "{subject_label} *" }
                                 select {
-                                    class: "form-select",
+                                    class: "w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-primary bg-white",
                                     required: true,
                                     onchange: move |evt| {
                                         selected_subject.set(evt.value().parse::<i64>().ok());
@@ -511,10 +511,10 @@ pub fn ImportQuestionsPage(locale: String) -> Element {
                             }
 
                             // Chapter selector
-                            div { class: "form-group",
+                            div { class: "mb-4",
                                 label { "{chapter_label}" }
                                 select {
-                                    class: "form-select",
+                                    class: "w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-primary bg-white",
                                     onchange: move |evt| {
                                         selected_chapter.set(evt.value().parse::<i64>().ok());
                                     },
@@ -535,15 +535,15 @@ pub fn ImportQuestionsPage(locale: String) -> Element {
                             }
 
                             // CSV import: local file upload OR paste
-                            div { class: "form-group",
+                            div { class: "mb-4",
                                 label { "CSV File" }
-                                p { class: "form-help-text",
+                                p { class: "text-xs text-gray-400 mt-1",
                                     "Upload a local CSV file or paste content directly below."
                                 }
                                 input {
                                     r#type: "file",
                                     accept: ".csv,text/csv",
-                                    class: "form-input",
+                                    class: "w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 bg-white",
                                     onchange: move |evt| {
                                         if let Some(file_engine) = evt.files() {
                                             let names = file_engine.files();
@@ -560,9 +560,9 @@ pub fn ImportQuestionsPage(locale: String) -> Element {
                                     },
                                 }
                             }
-                            div { class: "form-group",
+                            div { class: "mb-4",
                                 label { "CSV Content" }
-                                p { class: "form-help-text", "{csv_format_help}" }
+                                p { class: "text-xs text-gray-400 mt-1", "{csv_format_help}" }
                                 textarea {
                                     class: "form-input form-textarea form-textarea-lg",
                                     placeholder: "question_text_en,question_text_zh,single_choice,easy,Option A,...",
@@ -574,7 +574,7 @@ pub fn ImportQuestionsPage(locale: String) -> Element {
 
                             button {
                                 r#type: "submit",
-                                class: "btn btn-primary btn-lg",
+                                class: "inline-flex items-center justify-center px-6 py-3 rounded-lg text-base font-medium bg-primary text-white hover:bg-primary-dark transition-all disabled:opacity-50 disabled:cursor-not-allowed",
                                 disabled: importing(),
                                 if importing() { "..." } else { "{import_text}" }
                             }
@@ -613,7 +613,7 @@ pub fn GenerateExamPage(locale: String) -> Element {
         let session_cookie = app_state().auth.session_cookie.clone();
         async move {
             let mut req = reqwest::Client::new()
-                .get(&format!("{}/exam/subjects", crate::API_BASE));
+                .get(&format!("{}/exam/subjects", &crate::api_base()));
             if let Some(ref sc) = session_cookie {
                 req = req.header("Cookie", format!("brewflow_session={}", sc));
             }
@@ -632,7 +632,7 @@ pub fn GenerateExamPage(locale: String) -> Element {
                 return Ok(Vec::<ChapterOption>::new());
             };
             let mut req = reqwest::Client::new()
-                .get(&format!("{}/exam/subjects/{}/chapters", crate::API_BASE, sid));
+                .get(&format!("{}/exam/subjects/{}/chapters", &crate::api_base(), sid));
             if let Some(ref sc) = session_cookie {
                 req = req.header("Cookie", format!("brewflow_session={}", sc));
             }
@@ -650,24 +650,24 @@ pub fn GenerateExamPage(locale: String) -> Element {
     let generate_text = t.t(&loc, "btn.generate");
 
     rsx! {
-        div { class: "page page-generate-exam",
+        div { class: "min-h-screen flex flex-col bg-[#fefcf9]",
             Navbar { locale: locale.clone() }
 
-            main { class: "main-content",
-                section { class: "section",
-                    h2 { class: "section-title", "{page_title}" }
+            main { class: "flex-1 max-w-7xl mx-auto px-4 py-8 w-full",
+                section { class: "mb-8",
+                    h2 { class: "text-2xl font-bold mb-5 text-gray-800", "{page_title}" }
 
                     if let Some(err) = error_msg() {
-                        div { class: "alert alert-error", "{err}" }
+                        div { class: "bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm mb-4", "{err}" }
                     }
 
                     // Generated exam summary
                     if let Some(exam) = generated_exam() {
-                        div { class: "generated-exam-card",
+                        div { class: "bg-green-50 border border-green-200 rounded-xl p-6 mb-6",
                             h3 {
                                 if loc == "zh" { "\u{8003}\u{8bd5}\u{5df2}\u{751f}\u{6210}\u{ff01}" } else { "Exam Generated!" }
                             }
-                            div { class: "generated-exam-details",
+                            div { class: "space-y-1 mt-3 text-sm",
                                 p {
                                     if loc == "zh" { "\u{6807}\u{9898}: " } else { "Title: " }
                                     strong {
@@ -701,9 +701,9 @@ pub fn GenerateExamPage(locale: String) -> Element {
                     }
 
                     // Generate form
-                    div { class: "generate-form-card",
+                    div { class: "bg-white rounded-xl shadow p-6",
                         form {
-                            class: "generate-form",
+                            class: "space-y-4",
                             onsubmit: move |evt| {
                                 evt.prevent_default();
                                 let te = title_en().clone();
@@ -734,7 +734,7 @@ pub fn GenerateExamPage(locale: String) -> Element {
                                     };
 
                                     let mut req = reqwest::Client::new()
-                                        .post(&format!("{}/exam/generate", crate::API_BASE))
+                                        .post(&format!("{}/exam/generate", &crate::api_base()))
                                         .json(&body);
                                     if let Some(ref sc) = session_cookie {
                                         req = req.header("Cookie", format!("brewflow_session={}", sc));
@@ -765,11 +765,11 @@ pub fn GenerateExamPage(locale: String) -> Element {
                             },
 
                             // Title EN
-                            div { class: "form-group",
+                            div { class: "mb-4",
                                 label { "Title (EN) *" }
                                 input {
                                     r#type: "text",
-                                    class: "form-input",
+                                    class: "w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 bg-white",
                                     placeholder: "Exam title in English",
                                     required: true,
                                     value: "{title_en}",
@@ -778,11 +778,11 @@ pub fn GenerateExamPage(locale: String) -> Element {
                             }
 
                             // Title ZH
-                            div { class: "form-group",
+                            div { class: "mb-4",
                                 label { "Title (ZH)" }
                                 input {
                                     r#type: "text",
-                                    class: "form-input",
+                                    class: "w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 bg-white",
                                     placeholder: "\u{8003}\u{8bd5}\u{6807}\u{9898}",
                                     value: "{title_zh}",
                                     oninput: move |evt| title_zh.set(evt.value()),
@@ -790,10 +790,10 @@ pub fn GenerateExamPage(locale: String) -> Element {
                             }
 
                             // Subject
-                            div { class: "form-group",
+                            div { class: "mb-4",
                                 label { "{subject_label}" }
                                 select {
-                                    class: "form-select",
+                                    class: "w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-primary bg-white",
                                     onchange: move |evt| {
                                         selected_subject.set(evt.value().parse::<i64>().ok());
                                         selected_chapter.set(None);
@@ -815,10 +815,10 @@ pub fn GenerateExamPage(locale: String) -> Element {
                             }
 
                             // Chapter
-                            div { class: "form-group",
+                            div { class: "mb-4",
                                 label { "{chapter_label}" }
                                 select {
-                                    class: "form-select",
+                                    class: "w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-primary bg-white",
                                     onchange: move |evt| {
                                         selected_chapter.set(evt.value().parse::<i64>().ok());
                                     },
@@ -839,10 +839,10 @@ pub fn GenerateExamPage(locale: String) -> Element {
                             }
 
                             // Difficulty
-                            div { class: "form-group",
+                            div { class: "mb-4",
                                 label { "{difficulty_label}" }
                                 select {
-                                    class: "form-select",
+                                    class: "w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-primary bg-white",
                                     onchange: move |evt| selected_difficulty.set(evt.value()),
                                     option { value: "",
                                         if loc == "zh" { "\u{6df7}\u{5408}" } else { "Mixed" }
@@ -854,13 +854,13 @@ pub fn GenerateExamPage(locale: String) -> Element {
                             }
 
                             // Question count
-                            div { class: "form-group",
+                            div { class: "mb-4",
                                 label {
                                     if loc == "zh" { "\u{9898}\u{6570}" } else { "Question Count" }
                                 }
                                 input {
                                     r#type: "number",
-                                    class: "form-input",
+                                    class: "w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 bg-white",
                                     min: "1",
                                     max: "200",
                                     value: "{question_count}",
@@ -873,11 +873,11 @@ pub fn GenerateExamPage(locale: String) -> Element {
                             }
 
                             // Time limit
-                            div { class: "form-group",
+                            div { class: "mb-4",
                                 label { "{time_limit_label} (min)" }
                                 input {
                                     r#type: "number",
-                                    class: "form-input",
+                                    class: "w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 bg-white",
                                     min: "5",
                                     max: "300",
                                     value: "{time_limit}",
@@ -891,7 +891,7 @@ pub fn GenerateExamPage(locale: String) -> Element {
 
                             button {
                                 r#type: "submit",
-                                class: "btn btn-primary btn-lg",
+                                class: "inline-flex items-center justify-center px-6 py-3 rounded-lg text-base font-medium bg-primary text-white hover:bg-primary-dark transition-all disabled:opacity-50 disabled:cursor-not-allowed",
                                 disabled: generating(),
                                 if generating() { "..." } else { "{generate_text}" }
                             }

@@ -4,11 +4,11 @@ use shared::models::{Spu, OptionGroup, OptionValue, Sku};
 pub async fn list_spus(pool: &MySqlPool, active_only: bool) -> Vec<Spu> {
     let sql = if active_only {
         "SELECT id, name_en, name_zh, description_en, description_zh, category, image_url,
-                base_price, prep_time_minutes, is_active, created_at, updated_at
+                CAST(base_price AS DOUBLE) AS base_price, prep_time_minutes, is_active, created_at, updated_at
          FROM spu WHERE is_active = 1 ORDER BY id"
     } else {
         "SELECT id, name_en, name_zh, description_en, description_zh, category, image_url,
-                base_price, prep_time_minutes, is_active, created_at, updated_at
+                CAST(base_price AS DOUBLE) AS base_price, prep_time_minutes, is_active, created_at, updated_at
          FROM spu ORDER BY id"
     };
 
@@ -38,7 +38,7 @@ pub async fn list_spus(pool: &MySqlPool, active_only: bool) -> Vec<Spu> {
 pub async fn get_spu(pool: &MySqlPool, id: i64) -> Option<Spu> {
     let row = sqlx::query(
         "SELECT id, name_en, name_zh, description_en, description_zh, category, image_url,
-                base_price, prep_time_minutes, is_active, created_at, updated_at
+                CAST(base_price AS DOUBLE) AS base_price, prep_time_minutes, is_active, created_at, updated_at
          FROM spu WHERE id = ?"
     )
     .bind(id)
@@ -86,7 +86,7 @@ pub async fn get_option_groups(pool: &MySqlPool, spu_id: i64) -> Vec<OptionGroup
 
 pub async fn get_option_values(pool: &MySqlPool, group_id: i64) -> Vec<OptionValue> {
     let rows = sqlx::query(
-        "SELECT id, group_id, label_en, label_zh, price_delta, is_default, sort_order
+        "SELECT id, group_id, label_en, label_zh, CAST(price_delta AS DOUBLE) AS price_delta, is_default, sort_order
          FROM option_values WHERE group_id = ? ORDER BY sort_order"
     )
     .bind(group_id)
@@ -113,7 +113,7 @@ pub async fn get_sku_by_options(pool: &MySqlPool, spu_id: i64, option_value_ids:
     if option_value_ids.is_empty() {
         // No options selected -- look for a default SKU for this SPU
         let row = sqlx::query(
-            "SELECT s.id, s.spu_id, s.sku_code, s.price, s.stock_quantity, s.is_active
+            "SELECT s.id, s.spu_id, s.sku_code, CAST(s.price AS DOUBLE) AS price, s.stock_quantity, s.is_active
              FROM sku s
              LEFT JOIN sku_option_values sov ON sov.sku_id = s.id
              WHERE s.spu_id = ? AND sov.id IS NULL AND s.is_active = 1
@@ -139,7 +139,7 @@ pub async fn get_sku_by_options(pool: &MySqlPool, spu_id: i64, option_value_ids:
     let option_count = option_value_ids.len() as i64;
 
     let sql = format!(
-        "SELECT s.id, s.spu_id, s.sku_code, s.price, s.stock_quantity, s.is_active
+        "SELECT s.id, s.spu_id, s.sku_code, CAST(s.price AS DOUBLE) AS price, s.stock_quantity, s.is_active
          FROM sku s
          JOIN sku_option_values sov ON sov.sku_id = s.id
          WHERE s.spu_id = ? AND s.is_active = 1
@@ -170,7 +170,7 @@ pub async fn get_sku_by_options(pool: &MySqlPool, spu_id: i64, option_value_ids:
 
 pub async fn get_sku(pool: &MySqlPool, id: i64) -> Option<Sku> {
     let row = sqlx::query(
-        "SELECT id, spu_id, sku_code, price, stock_quantity, is_active
+        "SELECT id, spu_id, sku_code, CAST(price AS DOUBLE) AS price, stock_quantity, is_active
          FROM sku WHERE id = ?"
     )
     .bind(id)
@@ -189,7 +189,7 @@ pub async fn get_sku(pool: &MySqlPool, id: i64) -> Option<Sku> {
 }
 
 pub async fn get_option_value_by_id(pool: &MySqlPool, id: i64) -> Option<OptionValue> {
-    sqlx::query("SELECT id, group_id, label_en, label_zh, price_delta, is_default, sort_order FROM option_values WHERE id = ?")
+    sqlx::query("SELECT id, group_id, label_en, label_zh, CAST(price_delta AS DOUBLE) AS price_delta, is_default, sort_order FROM option_values WHERE id = ?")
         .bind(id)
         .fetch_optional(pool)
         .await

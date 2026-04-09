@@ -1,8 +1,5 @@
 use dioxus::prelude::*;
 
-/// Displays a countdown timer for a hold/reservation expiry.
-/// `expires_at` should be an ISO 8601 datetime string (e.g. "2026-04-04T14:30:00").
-/// `locale` is used for translating labels.
 #[component]
 pub fn HoldTimer(expires_at: String, locale: String) -> Element {
     let t = shared::i18n::init_translations();
@@ -11,12 +8,11 @@ pub fn HoldTimer(expires_at: String, locale: String) -> Element {
     let mut remaining_secs = use_signal(|| compute_remaining(&expires_at));
     let expires_clone = expires_at.clone();
 
-    // Spawn a tick that updates every second
     use_future(move || {
         let expires = expires_clone.clone();
         async move {
             loop {
-                tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+                gloo_timers::future::TimeoutFuture::new(1_000).await;
                 let secs = compute_remaining(&expires);
                 remaining_secs.set(secs);
                 if secs <= 0 {
@@ -31,8 +27,8 @@ pub fn HoldTimer(expires_at: String, locale: String) -> Element {
     if secs <= 0 {
         let msg = t.t(loc, "msg.item_released");
         rsx! {
-            div { class: "hold-timer hold-timer-expired",
-                span { class: "hold-timer-warning", "{msg}" }
+            div { class: "text-center p-4 rounded-xl bg-red-50 border border-red-300",
+                span { class: "text-red-600 font-medium", "{msg}" }
             }
         }
     } else {
@@ -40,21 +36,28 @@ pub fn HoldTimer(expires_at: String, locale: String) -> Element {
         let seconds = secs % 60;
         let display = format!("{:02}:{:02}", minutes, seconds);
         let label = t.t(loc, "label.hold_timer");
-        let warning_class = if secs < 60 { "hold-timer hold-timer-urgent" } else { "hold-timer" };
+        let wrapper_class = if secs < 60 {
+            "text-center p-4 rounded-xl bg-red-50 border border-red-300"
+        } else {
+            "text-center p-4 rounded-xl bg-amber-50 border border-amber-300"
+        };
+        let timer_class = if secs < 60 {
+            "text-3xl font-bold tabular-nums text-red-600"
+        } else {
+            "text-3xl font-bold tabular-nums text-amber-700"
+        };
 
         rsx! {
-            div { class: "{warning_class}",
-                span { class: "hold-timer-label", "{label}: " }
-                span { class: "hold-timer-countdown", "{display}" }
+            div { class: "{wrapper_class}",
+                span { class: "text-sm text-gray-600", "{label}: " }
+                span { class: "{timer_class}", "{display}" }
             }
         }
     }
 }
 
 fn compute_remaining(expires_at: &str) -> i64 {
-    // Parse ISO 8601 datetime and compute seconds remaining
     let Ok(expiry) = chrono::NaiveDateTime::parse_from_str(expires_at, "%Y-%m-%dT%H:%M:%S") else {
-        // Try with fractional seconds
         let Ok(expiry) = chrono::NaiveDateTime::parse_from_str(expires_at, "%Y-%m-%dT%H:%M:%S%.f") else {
             return 0;
         };

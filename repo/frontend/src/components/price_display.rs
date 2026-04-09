@@ -6,6 +6,6 @@ pub fn PriceDisplay(amount: f64, locale: String) -> Element {
     let formatted = format!("{}{:.2}", symbol, amount);
 
     rsx! {
-        span { class: "price", "{formatted}" }
+        span { class: "font-semibold text-primary-dark", "{formatted}" }
     }
 }

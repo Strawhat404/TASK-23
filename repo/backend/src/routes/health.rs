@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use rocket::{get, routes};
 use rocket::serde::json::Json;
 use rocket::http::Status;
@@ -43,8 +41,8 @@ pub async fn health(pool: &State<MySqlPool>) -> Result<Json<ApiResponse<String>>
 #[get("/detailed")]
 pub async fn detailed(
     pool: &State<MySqlPool>,
-    degradation: &State<DegradationManager>,
-    job_mgr: &State<Arc<BackgroundJobManager>>,
+    degradation: &State<std::sync::Arc<DegradationManager>>,
+    job_mgr: &State<std::sync::Arc<BackgroundJobManager>>,
     start: &State<AppStartTime>,
     _admin: AdminGuard,
 ) -> Json<crate::services::health::HealthReport> {
@@ -63,7 +61,7 @@ pub async fn detailed(
 #[get("/ready")]
 pub async fn ready(
     pool: &State<MySqlPool>,
-    degradation: &State<DegradationManager>,
+    degradation: &State<std::sync::Arc<DegradationManager>>,
 ) -> Result<Json<ApiResponse<String>>, (Status, Json<ApiResponse<()>>)> {
     let db = crate::services::health::check_database(pool.inner()).await;
     if db.status != "healthy" {

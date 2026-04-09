@@ -125,13 +125,17 @@ mod tests {
     ///
     /// DB-dependent tests MUST fail loudly when `TEST_DATABASE_URL` is not set.
     /// Use `cargo test` filters or `run_tests.sh` to exclude them locally.
+    /// Returns `(runtime, rocket)`.  The runtime **must** stay alive for the
+    /// entire test because the sqlx pool spawns background tasks on it.
+    /// Bind it as `_rt` so the drop runs at the end of the test function.
     macro_rules! require_db {
         () => {{
-            let rt_inner = tokio::runtime::Runtime::new().unwrap();
-            rt_inner.block_on(db_rocket()).expect(
+            let rt = tokio::runtime::Runtime::new().unwrap();
+            let rocket = rt.block_on(db_rocket()).expect(
                 "TEST_DATABASE_URL (or DATABASE_URL) must be set and connectable to run DB tests.\n\
                  To skip DB tests locally: cargo test --package backend -- --skip login --skip customer --skip add_to_cart --skip confirm_order --skip scan_voucher"
-            )
+            );
+            (rt, rocket)
         }};
     }
 
@@ -193,7 +197,7 @@ mod tests {
 
     #[test]
     fn login_with_valid_credentials_returns_session_cookie() {
-        let rocket = require_db!();
+        let (_rt, rocket) = require_db!();
         let client = Client::tracked(rocket).expect("valid rocket");
         let resp = client
             .post("/api/auth/login")
@@ -214,7 +218,7 @@ mod tests {
 
     #[test]
     fn login_with_wrong_password_returns_401() {
-        let rocket = require_db!();
+        let (_rt, rocket) = require_db!();
         let client = Client::tracked(rocket).expect("valid rocket");
         let resp = client
             .post("/api/auth/login")
@@ -226,7 +230,7 @@ mod tests {
 
     #[test]
     fn customer_cannot_access_staff_orders_returns_403() {
-        let rocket = require_db!();
+        let (_rt, rocket) = require_db!();
         let client = Client::tracked(rocket).expect("valid rocket");
         let cookie = login(&client, "customer", "CustomerPass123!");
 
@@ -239,12 +243,12 @@ mod tests {
 
     #[test]
     fn customer_cannot_access_admin_endpoint_returns_403() {
-        let rocket = require_db!();
+        let (_rt, rocket) = require_db!();
         let client = Client::tracked(rocket).expect("valid rocket");
         let cookie = login(&client, "customer", "CustomerPass123!");
 
         let resp = client
-            .get("/api/admin/questions")
+            .get("/api/admin/users")
             .cookie(rocket::http::Cookie::new("brewflow_session", cookie))
             .dispatch();
         assert_eq!(resp.status(), Status::Forbidden);
@@ -252,7 +256,7 @@ mod tests {
 
     #[test]
     fn add_to_cart_without_required_option_group_returns_422() {
-        let rocket = require_db!();
+        let (_rt, rocket) = require_db!();
         let client = Client::tracked(rocket).expect("valid rocket");
         let cookie = login(&client, "customer", "CustomerPass123!");
 
@@ -274,7 +278,7 @@ mod tests {
 
     #[test]
     fn confirm_order_with_expired_hold_returns_409() {
-        let rocket = require_db!();
+        let (_rt, rocket) = require_db!();
         let client = Client::tracked(rocket).expect("valid rocket");
         let cookie = login(&client, "customer", "CustomerPass123!");
 
@@ -296,7 +300,7 @@ mod tests {
 
     #[test]
     fn scan_voucher_for_cancelled_order_returns_valid_false() {
-        let rocket = require_db!();
+        let (_rt, rocket) = require_db!();
         let client = Client::tracked(rocket).expect("valid rocket");
         let cookie = login(&client, "staff", "StaffPass123!");
 

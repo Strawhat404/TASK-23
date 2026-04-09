@@ -87,7 +87,7 @@ fn row_to_order(r: sqlx::mysql::MySqlRow) -> Order {
 
 pub async fn get_order(pool: &MySqlPool, id: i64) -> Option<Order> {
     let row = sqlx::query(
-        "SELECT id, user_id, reservation_id, order_number, subtotal, tax_amount, total, status, created_at, updated_at
+        "SELECT id, user_id, reservation_id, order_number, CAST(subtotal AS DOUBLE) AS subtotal, CAST(tax_amount AS DOUBLE) AS tax_amount, CAST(total AS DOUBLE) AS total, status, created_at, updated_at
          FROM orders WHERE id = ?"
     )
     .bind(id)
@@ -100,7 +100,7 @@ pub async fn get_order(pool: &MySqlPool, id: i64) -> Option<Order> {
 
 pub async fn get_order_by_number(pool: &MySqlPool, order_number: &str) -> Option<Order> {
     let row = sqlx::query(
-        "SELECT id, user_id, reservation_id, order_number, subtotal, tax_amount, total, status, created_at, updated_at
+        "SELECT id, user_id, reservation_id, order_number, CAST(subtotal AS DOUBLE) AS subtotal, CAST(tax_amount AS DOUBLE) AS tax_amount, CAST(total AS DOUBLE) AS total, status, created_at, updated_at
          FROM orders WHERE order_number = ?"
     )
     .bind(order_number)
@@ -113,7 +113,7 @@ pub async fn get_order_by_number(pool: &MySqlPool, order_number: &str) -> Option
 
 pub async fn get_user_orders(pool: &MySqlPool, user_id: i64) -> Vec<Order> {
     let rows = sqlx::query(
-        "SELECT id, user_id, reservation_id, order_number, subtotal, tax_amount, total, status, created_at, updated_at
+        "SELECT id, user_id, reservation_id, order_number, CAST(subtotal AS DOUBLE) AS subtotal, CAST(tax_amount AS DOUBLE) AS tax_amount, CAST(total AS DOUBLE) AS total, status, created_at, updated_at
          FROM orders WHERE user_id = ? ORDER BY created_at DESC"
     )
     .bind(user_id)
@@ -140,7 +140,7 @@ pub struct OrderItemRow {
 
 pub async fn get_order_items(pool: &MySqlPool, order_id: i64) -> Vec<OrderItemRow> {
     let rows = sqlx::query(
-        "SELECT oi.id, oi.order_id, oi.sku_id, oi.quantity, oi.unit_price, oi.item_total,
+        "SELECT oi.id, oi.order_id, oi.sku_id, oi.quantity, CAST(oi.unit_price AS DOUBLE) AS unit_price, CAST(oi.item_total AS DOUBLE) AS item_total,
                 sk.sku_code, sp.name_en AS spu_name
          FROM order_items oi
          JOIN sku sk ON sk.id = oi.sku_id
@@ -222,9 +222,9 @@ pub async fn create_fulfillment_event(
 
 pub async fn list_all_orders(pool: &MySqlPool, status_filter: Option<&str>) -> Vec<Order> {
     let (query, needs_bind) = if status_filter.is_some() {
-        ("SELECT id, user_id, reservation_id, order_number, subtotal, tax_amount, total, status, created_at, updated_at FROM orders WHERE status = ? ORDER BY created_at DESC", true)
+        ("SELECT id, user_id, reservation_id, order_number, CAST(subtotal AS DOUBLE) AS subtotal, CAST(tax_amount AS DOUBLE) AS tax_amount, CAST(total AS DOUBLE) AS total, status, created_at, updated_at FROM orders WHERE status = ? ORDER BY created_at DESC", true)
     } else {
-        ("SELECT id, user_id, reservation_id, order_number, subtotal, tax_amount, total, status, created_at, updated_at FROM orders ORDER BY created_at DESC", false)
+        ("SELECT id, user_id, reservation_id, order_number, CAST(subtotal AS DOUBLE) AS subtotal, CAST(tax_amount AS DOUBLE) AS tax_amount, CAST(total AS DOUBLE) AS total, status, created_at, updated_at FROM orders ORDER BY created_at DESC", false)
     };
     let mut q = sqlx::query(query);
     if needs_bind {

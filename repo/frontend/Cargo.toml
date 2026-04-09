@@ -5,10 +5,11 @@ edition = "2021"
 
 [dependencies]
 shared = { path = "../shared" }
-dioxus = { version = "0.6", features = ["fullstack", "router"] }
+dioxus = { version = "0.6", features = ["web", "router"] }
 serde = { workspace = true }
 serde_json = { workspace = true }
 chrono = { workspace = true }
-uuid = { workspace = true }
-reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
-tokio = { version = "1", features = ["time"] }
+uuid = { workspace = true, features = ["js"] }
+reqwest = { version = "0.12", default-features = false, features = ["json"] }
+gloo-timers = { version = "0.3", features = ["futures"] }
+web-sys = { version = "0.3", features = ["Window", "Location"] }

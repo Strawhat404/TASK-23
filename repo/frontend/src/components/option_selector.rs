@@ -1,9 +1,6 @@
 use dioxus::prelude::*;
 use shared::dto::OptionGroupDetail;
 
-/// Renders product customization option groups (e.g. Size, Milk Type, Sweetness).
-/// Each group is displayed with its options as a radio-button group.
-/// Calls `on_change` with the currently selected option IDs and the total price delta.
 #[component]
 pub fn OptionSelector(
     groups: Vec<OptionGroupDetail>,
@@ -13,7 +10,6 @@ pub fn OptionSelector(
     let loc = locale.as_str();
     let is_zh = loc == "zh";
 
-    // Initialize selected options: pick the default (or first) option for each group.
     let initial_selections: Vec<(i64, i64, f64)> = groups
         .iter()
         .filter_map(|g| {
@@ -22,14 +18,13 @@ pub fn OptionSelector(
         })
         .collect();
 
-    // Store as Vec<(group_id, option_id, price_delta)>
     let mut selections = use_signal(|| initial_selections);
 
     let total_delta: f64 = selections().iter().map(|(_, _, d)| d).sum();
     let delta_display = format!("+{:.2}", total_delta);
 
     rsx! {
-        div { class: "option-selector",
+        div { class: "space-y-5 my-4",
             for group in groups.iter() {
                 {
                     let group_name = if is_zh { &group.name_zh } else { &group.name_en };
@@ -37,19 +32,18 @@ pub fn OptionSelector(
                     let group_id = group.id;
 
                     rsx! {
-                        div { class: "option-group",
-                            label { class: "option-group-label",
-                                "{group_name}{required_marker}"
+                        div { class: "space-y-2",
+                            label { class: "block font-semibold text-sm text-gray-700",
+                                "{group_name}"
+                                if group.is_required {
+                                    span { class: "text-red-500 text-xs ml-1", "{required_marker}" }
+                                }
                             }
-                            div { class: "option-group-choices",
+                            div { class: "flex flex-wrap gap-2",
                                 for option in group.options.iter() {
                                     {
                                         let opt_id = option.id;
-                                        let opt_label = if is_zh {
-                                            option.label_zh.clone()
-                                        } else {
-                                            option.label_en.clone()
-                                        };
+                                        let opt_label = if is_zh { option.label_zh.clone() } else { option.label_en.clone() };
                                         let opt_delta = option.price_delta;
                                         let delta_text = if opt_delta > 0.0 {
                                             format!(" (+{:.2})", opt_delta)
@@ -64,9 +58,9 @@ pub fn OptionSelector(
                                             .any(|(gid, oid, _)| *gid == group_id && *oid == opt_id);
 
                                         let btn_class = if is_selected {
-                                            "option-choice option-choice-selected"
+                                            "px-4 py-2 rounded-lg text-sm font-medium border-2 border-primary bg-primary/10 text-primary cursor-pointer transition-all"
                                         } else {
-                                            "option-choice"
+                                            "px-4 py-2 rounded-lg text-sm font-medium border border-gray-200 bg-white text-gray-700 cursor-pointer hover:border-primary-light hover:bg-primary/5 transition-all"
                                         };
 
                                         rsx! {
@@ -74,7 +68,6 @@ pub fn OptionSelector(
                                                 class: "{btn_class}",
                                                 onclick: move |_| {
                                                     let mut sels = selections.write();
-                                                    // Replace the selection for this group
                                                     if let Some(entry) = sels.iter_mut().find(|(gid, _, _)| *gid == group_id) {
                                                         entry.1 = opt_id;
                                                         entry.2 = opt_delta;
@@ -96,9 +89,9 @@ pub fn OptionSelector(
                     }
                 }
             }
-            div { class: "option-selector-summary",
-                span { class: "option-delta-label", "Options: " }
-                span { class: "option-delta-value", "{delta_display}" }
+            div { class: "flex justify-between items-center pt-2 border-t border-gray-100",
+                span { class: "text-sm text-gray-500", "Options: " }
+                span { class: "font-semibold text-primary", "{delta_display}" }
             }
         }
     }
