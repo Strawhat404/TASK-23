@@ -61,7 +61,6 @@ Pending → Accepted → Preparing → Ready → Collected
 
 ### Security
 - HMAC-signed rotating session cookies (30-min idle, 5-min rotation)
-- JWT bearer fallback for API clients
 - bcrypt password hashing
 - AES-256-GCM voucher encryption
 - Request log masking for sensitive fields

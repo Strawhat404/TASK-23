@@ -12,8 +12,8 @@
 
 ### Session cookie vs JWT
 **Question**: The prompt specifies rotating HMAC-signed session cookies as the primary auth mechanism. Should JWT be supported at all?  
-**My Understanding**: JWT bearer tokens are useful for API clients (e.g. mobile apps, scripts) that cannot use cookies. They should be supported as a fallback but with equivalent security controls.  
-**Solution**: The auth guard accepts both cookie sessions and JWT bearer tokens. JWT expiry is capped at 30 minutes to match the cookie idle timeout. Cookie sessions rotate every 5 minutes to prevent fixation.
+**My Understanding**: JWT bearer tokens could be useful for API clients, but they add complexity and a second auth surface to maintain.  
+**Solution**: The auth guard uses HMAC-signed session cookies exclusively. API clients (e.g. WASM frontend) receive the signed cookie value in the login response body and attach it via the `Cookie` header manually. This keeps a single auth path with consistent security properties (idle timeout, rotation, server-side revocation).
 
 ### Reservation lock quantity handling
 **Question**: When a customer adds quantity > 1 of an item to the cart, should the reservation lock decrement stock by the full quantity?  

@@ -117,13 +117,13 @@ pub fn HomePage(locale: String) -> Element {
                                 for h in hours_list.iter() {
                                     {
                                         let day_name = match h.day_of_week {
+                                            0 => if loc == "zh" { "\u{5468}\u{65e5}" } else { "Sun" },
                                             1 => if loc == "zh" { "\u{5468}\u{4e00}" } else { "Mon" },
                                             2 => if loc == "zh" { "\u{5468}\u{4e8c}" } else { "Tue" },
                                             3 => if loc == "zh" { "\u{5468}\u{4e09}" } else { "Wed" },
                                             4 => if loc == "zh" { "\u{5468}\u{56db}" } else { "Thu" },
                                             5 => if loc == "zh" { "\u{5468}\u{4e94}" } else { "Fri" },
                                             6 => if loc == "zh" { "\u{5468}\u{516d}" } else { "Sat" },
-                                            7 => if loc == "zh" { "\u{5468}\u{65e5}" } else { "Sun" },
                                             _ => "?",
                                         };
                                         let open = h.open_time.clone();

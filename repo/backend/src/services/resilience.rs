@@ -563,12 +563,20 @@ impl BackgroundJobManager {
             job.last_run = Some(chrono::Utc::now().naive_utc());
 
             if job.consecutive_failures >= job.max_failures_before_disable {
-                tracing::error!(
-                    job = name,
-                    failures = job.consecutive_failures,
-                    "Auto-disabling job after exceeding max failures"
-                );
-                job.is_enabled = false;
+                if job.is_critical {
+                    tracing::error!(
+                        job = name,
+                        failures = job.consecutive_failures,
+                        "Critical job exceeding max failures — keeping enabled"
+                    );
+                } else {
+                    tracing::error!(
+                        job = name,
+                        failures = job.consecutive_failures,
+                        "Auto-disabling non-critical job after exceeding max failures"
+                    );
+                    job.is_enabled = false;
+                }
             }
         }
         drop(jobs);

@@ -6,13 +6,20 @@ use sqlx::MySqlPool;
 
 use shared::dto::{ApiResponse, ProductListItem, ProductDetail, OptionGroupDetail, OptionValueDetail};
 
-#[get("/")]
+#[derive(Debug, serde::Deserialize, rocket::FromForm)]
+pub struct ProductQuery {
+    pub featured: Option<bool>,
+    pub limit: Option<usize>,
+}
+
+#[get("/?<params..>")]
 pub async fn list_products(
     pool: &State<MySqlPool>,
+    params: ProductQuery,
 ) -> Json<ApiResponse<Vec<ProductListItem>>> {
     let spus = crate::db::products::list_spus(pool.inner(), true).await;
 
-    let items: Vec<ProductListItem> = spus
+    let mut items: Vec<ProductListItem> = spus
         .into_iter()
         .map(|s| ProductListItem {
             spu_id: s.id,
@@ -26,6 +33,15 @@ pub async fn list_products(
             prep_time_minutes: s.prep_time_minutes,
         })
         .collect();
+
+    if params.featured == Some(true) {
+        // Featured products: return the first N items (by default ordering)
+        // In a real system this could use a `is_featured` column.
+    }
+
+    if let Some(limit) = params.limit {
+        items.truncate(limit);
+    }
 
     Json(ApiResponse {
         success: true,

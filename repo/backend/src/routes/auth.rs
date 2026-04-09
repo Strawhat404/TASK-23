@@ -18,7 +18,6 @@ pub struct RegisterRequest {
     pub password: String,
     pub display_name: Option<String>,
     pub email: Option<String>,
-    pub role: Option<String>,
 }
 
 #[derive(Debug, serde::Deserialize)]
@@ -161,11 +160,9 @@ pub async fn register(
         )
     })?;
 
-    // Assign role (default to Customer if not specified)
-    let role = body.role.as_deref().unwrap_or("Customer");
-    let valid_roles = ["Customer", "Staff", "Teacher", "AcademicAffairs", "Admin"];
-    let role = if valid_roles.contains(&role) { role } else { "Customer" };
-    let _ = crate::db::users::assign_role(pool.inner(), user_id, role).await;
+    // Public registration always assigns Customer role — privileged roles
+    // must be granted by an admin through a separate workflow.
+    let _ = crate::db::users::assign_role(pool.inner(), user_id, "Customer").await;
     let roles = crate::db::users::get_user_roles(pool.inner(), user_id).await;
 
     Ok(Json(ApiResponse {

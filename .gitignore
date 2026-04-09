@@ -1,3 +1,2 @@
-/repo/target/
-*.jsonl
-repo/.env
+.tmp/
+sessions/

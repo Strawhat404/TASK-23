@@ -7,6 +7,18 @@ use crate::components::hold_timer::HoldTimer;
 use crate::state::AppState;
 use shared::dto::{ApiResponse, OrderDetail, OrderSummary};
 
+fn format_datetime(raw: &str, locale: &str) -> String {
+    if let Ok(dt) = chrono::NaiveDateTime::parse_from_str(raw, "%Y-%m-%dT%H:%M:%S") {
+        if locale == "zh" {
+            dt.format("%Y\u{5e74}%m\u{6708}%d\u{65e5} %H:%M").to_string()
+        } else {
+            dt.format("%b %d, %Y %H:%M").to_string()
+        }
+    } else {
+        raw.to_string()
+    }
+}
+
 #[component]
 pub fn OrdersPage(locale: String) -> Element {
     let t = shared::i18n::init_translations();
@@ -56,13 +68,15 @@ pub fn OrdersPage(locale: String) -> Element {
                                                 }
                                                 div { class: "flex justify-between items-center",
                                                     PriceDisplay { amount: order.total, locale: locale.clone() }
-                                                    span { class: "text-sm text-gray-400", "{order.created_at}" }
+                                                    span { class: "text-sm text-gray-400", "{format_datetime(&order.created_at, &loc)}" }
                                                 }
                                                 if let Some(ref voucher) = order.voucher_code {
                                                     p { class: "text-sm text-gray-500 mt-2 font-mono", if loc == "zh" { "\u{53d6}\u{9910}\u{7801}: " } else { "Voucher: " } "{voucher}" }
                                                 }
                                                 if let Some(ref slot) = order.pickup_slot {
-                                                    p { class: "text-sm text-gray-400 mt-1", if loc == "zh" { "\u{53d6}\u{9910}: " } else { "Pickup: " } "{slot}" }
+                                                    { let formatted_slot = slot.split(" - ").map(|s| format_datetime(s.trim(), &loc)).collect::<Vec<_>>().join(" - "); rsx! {
+                                                    p { class: "text-sm text-gray-400 mt-1", if loc == "zh" { "\u{53d6}\u{9910}: " } else { "Pickup: " } "{formatted_slot}" }
+                                                    } }
                                                 }
                                             }
                                         } }
@@ -164,7 +178,7 @@ pub fn OrderDetailPage(locale: String, id: i64) -> Element {
                                         }
                                         p { class: "text-sm text-gray-500 mb-2",
                                             if loc == "zh" { "\u{53d6}\u{9910}\u{65f6}\u{6bb5}: " } else { "Pickup: " }
-                                            "{reservation.pickup_slot_start} - {reservation.pickup_slot_end}"
+                                            "{format_datetime(&reservation.pickup_slot_start, &loc)} - {format_datetime(&reservation.pickup_slot_end, &loc)}"
                                         }
                                         div { class: "flex items-center gap-3 mb-2",
                                             StatusBadge { status: reservation.status.clone(), locale: locale.clone() }
@@ -188,7 +202,7 @@ pub fn OrderDetailPage(locale: String, id: i64) -> Element {
                                                         span { class: "text-gray-400 text-xs", "\u{2192}" }
                                                         StatusBadge { status: event.to_status.clone(), locale: locale.clone() }
                                                     }
-                                                    p { class: "text-xs text-gray-400", "{event.changed_by} - {event.timestamp}" }
+                                                    p { class: "text-xs text-gray-400", "{event.changed_by} - {format_datetime(&event.timestamp, &loc)}" }
                                                     if let Some(ref notes) = event.notes { p { class: "text-sm text-gray-500 mt-1", "{notes}" } }
                                                 }
                                             }
@@ -248,7 +262,7 @@ pub fn OrderDetailPage(locale: String, id: i64) -> Element {
 
                                 p { class: "text-sm text-gray-400",
                                     if loc == "zh" { "\u{521b}\u{5efa}\u{65f6}\u{95f4}: " } else { "Created: " }
-                                    "{order.created_at}"
+                                    "{format_datetime(&order.created_at, &loc)}"
                                 }
                             }
                         }

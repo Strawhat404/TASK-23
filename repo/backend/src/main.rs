@@ -87,7 +87,13 @@ async fn rocket() -> _ {
             loop {
                 interval.tick().await;
 
-                let due = bg_job_mgr.get_due_jobs().await;
+                let candidates = bg_job_mgr.get_due_jobs().await;
+                let mut due = Vec::new();
+                for name in candidates {
+                    if bg_job_mgr.should_run(&name).await {
+                        due.push(name);
+                    }
+                }
                 for job_name in due {
                     match job_name.as_str() {
                         "session_cleanup" => {

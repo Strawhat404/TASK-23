@@ -191,7 +191,7 @@ pub async fn checkout(
     let breakdown = crate::services::pricing::compute_breakdown(&line_items, tax_rate);
 
     let order_number = format!("ORD-{}", chrono::Utc::now().timestamp_millis());
-    let hold_expires_at = chrono::Local::now().naive_local() + chrono::Duration::minutes(10);
+    let hold_expires_at = chrono::Utc::now().naive_utc() + chrono::Duration::minutes(10);
     let encrypted_code = crate::services::crypto::encrypt(crypto.inner(), &voucher_code);
 
     // Flatten cart items to (sku_id, quantity, unit_price) for the transactional write.

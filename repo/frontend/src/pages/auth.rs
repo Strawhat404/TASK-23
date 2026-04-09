@@ -143,7 +143,6 @@ struct RegisterRequest {
     password: String,
     display_name: Option<String>,
     email: Option<String>,
-    role: Option<String>,
 }
 
 #[component]
@@ -155,7 +154,6 @@ pub fn RegisterPage(locale: String) -> Element {
     let mut password = use_signal(|| String::new());
     let mut display_name = use_signal(|| String::new());
     let mut email = use_signal(|| String::new());
-    let mut role = use_signal(|| "Customer".to_string());
     let mut error_msg = use_signal(|| Option::<String>::None);
     let mut success_msg = use_signal(|| Option::<String>::None);
     let mut loading = use_signal(|| false);
@@ -165,7 +163,6 @@ pub fn RegisterPage(locale: String) -> Element {
     let password_label = if loc == "zh" { "\u{5bc6}\u{7801}" } else { "Password" };
     let display_name_label = if loc == "zh" { "\u{663e}\u{793a}\u{540d}\u{79f0}" } else { "Display Name" };
     let email_label = if loc == "zh" { "\u{7535}\u{5b50}\u{90ae}\u{4ef6}" } else { "Email" };
-    let role_label = if loc == "zh" { "\u{89d2}\u{8272}" } else { "Role" };
     let submit_text = t.t(&loc, "btn.submit");
     let login_text = if loc == "zh" { "\u{5df2}\u{6709}\u{8d26}\u{53f7}\u{ff1f}\u{767b}\u{5f55}" } else { "Already have an account? Login" };
     let password_hint = if loc == "zh" {
@@ -226,18 +223,6 @@ pub fn RegisterPage(locale: String) -> Element {
                             p { class: "text-xs text-gray-400 mt-1", "{password_hint}" }
                         }
                         div { class: "mb-4",
-                            label { class: "block text-sm font-medium text-gray-700 mb-1", "{role_label}" }
-                            select {
-                                class: SELECT,
-                                value: "{role}",
-                                onchange: move |evt| role.set(evt.value()),
-                                option { value: "Customer", if loc == "zh" { "\u{987e}\u{5ba2}" } else { "Customer" } }
-                                option { value: "Staff", if loc == "zh" { "\u{5458}\u{5de5}" } else { "Staff" } }
-                                option { value: "Teacher", if loc == "zh" { "\u{6559}\u{5e08}" } else { "Teacher" } }
-                                option { value: "Admin", if loc == "zh" { "\u{7ba1}\u{7406}\u{5458}" } else { "Admin" } }
-                            }
-                        }
-                        div { class: "mb-4",
                             label { class: "block text-sm font-medium text-gray-700 mb-1", "{display_name_label}" }
                             input {
                                 r#type: "text",
@@ -265,7 +250,6 @@ pub fn RegisterPage(locale: String) -> Element {
                                 let pass = password().clone();
                                 let dname = display_name().clone();
                                 let em = email().clone();
-                                let r = role().clone();
                                 spawn(async move {
                                     loading.set(true);
                                     error_msg.set(None);
@@ -275,7 +259,6 @@ pub fn RegisterPage(locale: String) -> Element {
                                         password: pass,
                                         display_name: if dname.is_empty() { None } else { Some(dname) },
                                         email: if em.is_empty() { None } else { Some(em) },
-                                        role: Some(r),
                                     };
                                     let result = reqwest::Client::new()
                                         .post(&format!("{}/auth/register", &crate::api_base()))

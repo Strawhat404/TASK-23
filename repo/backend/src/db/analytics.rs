@@ -34,7 +34,7 @@ pub async fn get_user_score_analytics(
                 COALESCE(SUM(correct_count), 0) AS total_correct,
                 COALESCE(SUM(total_questions), 0) AS total_questions
          FROM exam_attempts
-         WHERE user_id = ? AND status = 'completed'"
+         WHERE user_id = ? AND status = 'Completed'"
     )
     .bind(user_id)
     .fetch_optional(pool)
@@ -62,7 +62,7 @@ pub async fn get_subject_stats(pool: &MySqlPool, user_id: i64) -> Vec<SubjectSco
          FROM exam_attempts ea
          JOIN exam_versions ev ON ev.id = ea.exam_version_id
          JOIN subjects s ON s.id = ev.subject_id
-         WHERE ea.user_id = ? AND ea.status = 'completed' AND ev.subject_id IS NOT NULL
+         WHERE ea.user_id = ? AND ea.status = 'Completed' AND ev.subject_id IS NOT NULL
          GROUP BY s.id, s.name_en
          ORDER BY s.name_en"
     )
@@ -88,7 +88,7 @@ pub async fn get_difficulty_breakdown(pool: &MySqlPool, user_id: i64) -> Vec<Dif
                 COUNT(ea.id) AS attempt_count
          FROM exam_attempts ea
          JOIN exam_versions ev ON ev.id = ea.exam_version_id
-         WHERE ea.user_id = ? AND ea.status = 'completed'
+         WHERE ea.user_id = ? AND ea.status = 'Completed'
          GROUP BY ev.difficulty
          ORDER BY ev.difficulty"
     )

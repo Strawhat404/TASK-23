@@ -273,6 +273,7 @@ pub fn StaffScanPage(locale: String) -> Element {
     let loc = locale.clone();
     let app_state = use_context::<Signal<AppState>>();
     let mut voucher_input = use_signal(|| String::new());
+    let mut order_id_input = use_signal(|| String::new());
     let mut scan_result = use_signal(|| Option::<ScanVoucherResponse>::None);
     let mut error_msg = use_signal(|| Option::<String>::None);
     let mut scanning = use_signal(|| false);
@@ -291,10 +292,11 @@ pub fn StaffScanPage(locale: String) -> Element {
                 div { class: "bg-white rounded-2xl shadow p-6 mb-6",
                     form { onsubmit: move |evt| {
                         evt.prevent_default();
-                        let code = voucher_input().clone(); let session_cookie = app_state().auth.session_cookie.clone();
+                        let code = voucher_input().clone(); let oid_str = order_id_input().clone(); let session_cookie = app_state().auth.session_cookie.clone();
                         spawn(async move {
                             scanning.set(true); error_msg.set(None); scan_result.set(None);
-                            let body = ScanVoucherRequest { voucher_code: code, order_id: None };
+                            let parsed_order_id = oid_str.trim().parse::<i64>().ok();
+                            let body = ScanVoucherRequest { voucher_code: code, order_id: parsed_order_id };
                             let mut req = reqwest::Client::new().post(&format!("{}/staff/scan", &crate::api_base())).json(&body);
                             if let Some(ref sc) = session_cookie { req = req.header("Cookie", format!("brewflow_session={}", sc)); }
                             match req.send().await {
@@ -316,6 +318,15 @@ pub fn StaffScanPage(locale: String) -> Element {
                             input { r#type: "text", id: "voucher-code", class: INPUT, autofocus: true,
                                 placeholder: if loc == "zh" { "\u{8f93}\u{5165}\u{6216}\u{626b}\u{63cf}\u{53d6}\u{9910}\u{7801}" } else { "Enter or scan voucher code" },
                                 value: "{voucher_input}", oninput: move |evt| voucher_input.set(evt.value()),
+                            }
+                        }
+                        div { class: "mb-4",
+                            label { r#for: "order-id", class: "block text-sm font-medium text-gray-700 mb-1",
+                                if loc == "zh" { "\u{8ba2}\u{5355}ID (\u{53ef}\u{9009})" } else { "Order ID (optional)" }
+                            }
+                            input { r#type: "text", id: "order-id", class: INPUT,
+                                placeholder: if loc == "zh" { "\u{8f93}\u{5165}\u{8ba2}\u{5355}ID\u{4ee5}\u{9a8c}\u{8bc1}\u{5339}\u{914d}" } else { "Enter order ID to verify match" },
+                                value: "{order_id_input}", oninput: move |evt| order_id_input.set(evt.value()),
                             }
                         }
                         button { r#type: "submit", class: "w-full inline-flex items-center justify-center px-6 py-3 rounded-lg text-base font-medium bg-primary text-white hover:bg-primary-dark transition-all disabled:opacity-50 disabled:cursor-not-allowed",
