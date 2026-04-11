@@ -383,3 +383,128 @@ pub struct PaginatedResponse<T> {
     pub page: i32,
     pub per_page: i32,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn api_response_success_serialization() {
+        let resp = ApiResponse {
+            success: true,
+            data: Some("hello"),
+            error: None,
+        };
+        let json = serde_json::to_string(&resp).unwrap();
+        assert!(json.contains(r#""success":true"#));
+        assert!(json.contains(r#""data":"hello""#));
+        assert!(json.contains(r#""error":null"#));
+    }
+
+    #[test]
+    fn api_response_error_serialization() {
+        let resp: ApiResponse<()> = ApiResponse {
+            success: false,
+            data: None,
+            error: Some("something went wrong".to_string()),
+        };
+        let json = serde_json::to_string(&resp).unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed["success"], false);
+        assert_eq!(parsed["error"], "something went wrong");
+    }
+
+    #[test]
+    fn api_response_deserialization() {
+        let json = r#"{"success":true,"data":42,"error":null}"#;
+        let resp: ApiResponse<i32> = serde_json::from_str(json).unwrap();
+        assert!(resp.success);
+        assert_eq!(resp.data, Some(42));
+        assert!(resp.error.is_none());
+    }
+
+    #[test]
+    fn login_request_deserialization() {
+        let json = r#"{"username":"admin","password":"secret123!"}"#;
+        let req: LoginRequest = serde_json::from_str(json).unwrap();
+        assert_eq!(req.username, "admin");
+        assert_eq!(req.password, "secret123!");
+    }
+
+    #[test]
+    fn add_to_cart_request_with_options() {
+        let req = AddToCartRequest {
+            sku_id: None,
+            spu_id: 1,
+            selected_options: vec![10, 20, 30],
+            quantity: 2,
+        };
+        let json = serde_json::to_string(&req).unwrap();
+        let back: AddToCartRequest = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.spu_id, 1);
+        assert_eq!(back.selected_options, vec![10, 20, 30]);
+        assert_eq!(back.quantity, 2);
+        assert!(back.sku_id.is_none());
+    }
+
+    #[test]
+    fn scan_voucher_request_order_id_defaults_to_none() {
+        let json = r#"{"voucher_code":"BF-ABC123"}"#;
+        let req: ScanVoucherRequest = serde_json::from_str(json).unwrap();
+        assert_eq!(req.voucher_code, "BF-ABC123");
+        assert!(req.order_id.is_none());
+    }
+
+    #[test]
+    fn scan_voucher_request_with_order_id() {
+        let json = r#"{"voucher_code":"BF-XYZ","order_id":42}"#;
+        let req: ScanVoucherRequest = serde_json::from_str(json).unwrap();
+        assert_eq!(req.order_id, Some(42));
+    }
+
+    #[test]
+    fn submit_answer_request_attempt_id_defaults_to_none() {
+        let json = r#"{"question_id":5,"selected_option_ids":[1,3]}"#;
+        let req: SubmitAnswerRequest = serde_json::from_str(json).unwrap();
+        assert!(req.attempt_id.is_none());
+        assert_eq!(req.question_id, 5);
+        assert_eq!(req.selected_option_ids, vec![1, 3]);
+    }
+
+    #[test]
+    fn checkout_request_round_trip() {
+        let req = CheckoutRequest {
+            pickup_slot_start: "2026-04-13T10:00:00".to_string(),
+            pickup_slot_end: "2026-04-13T10:15:00".to_string(),
+        };
+        let json = serde_json::to_string(&req).unwrap();
+        let back: CheckoutRequest = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.pickup_slot_start, "2026-04-13T10:00:00");
+        assert_eq!(back.pickup_slot_end, "2026-04-13T10:15:00");
+    }
+
+    #[test]
+    fn pickup_slot_equality() {
+        let a = PickupSlot {
+            start: "2026-04-13T09:00:00".to_string(),
+            end: "2026-04-13T09:15:00".to_string(),
+            available: true,
+        };
+        let b = a.clone();
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn paginated_response_serialization() {
+        let resp = PaginatedResponse {
+            items: vec![1, 2, 3],
+            total: 100,
+            page: 1,
+            per_page: 3,
+        };
+        let json = serde_json::to_string(&resp).unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed["total"], 100);
+        assert_eq!(parsed["items"].as_array().unwrap().len(), 3);
+    }
+}

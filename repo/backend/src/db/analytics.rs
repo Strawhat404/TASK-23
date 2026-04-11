@@ -29,10 +29,10 @@ pub async fn get_user_score_analytics(
     user_id: i64,
 ) -> (f64, i64, i64, i64) {
     let row = sqlx::query(
-        "SELECT COALESCE(AVG(score), 0) AS avg_score,
+        "SELECT CAST(COALESCE(AVG(score), 0) AS DOUBLE) AS avg_score,
                 COUNT(*) AS total_attempts,
-                COALESCE(SUM(correct_count), 0) AS total_correct,
-                COALESCE(SUM(total_questions), 0) AS total_questions
+                CAST(COALESCE(SUM(correct_count), 0) AS SIGNED) AS total_correct,
+                CAST(COALESCE(SUM(total_questions), 0) AS SIGNED) AS total_questions
          FROM exam_attempts
          WHERE user_id = ? AND status = 'Completed'"
     )
@@ -57,7 +57,7 @@ pub async fn get_user_score_analytics(
 pub async fn get_subject_stats(pool: &MySqlPool, user_id: i64) -> Vec<SubjectScore> {
     let rows = sqlx::query(
         "SELECT s.id AS subject_id, s.name_en AS subject_name,
-                COALESCE(AVG(ea.score), 0) AS avg_score,
+                CAST(COALESCE(AVG(ea.score), 0) AS DOUBLE) AS avg_score,
                 COUNT(ea.id) AS attempt_count
          FROM exam_attempts ea
          JOIN exam_versions ev ON ev.id = ea.exam_version_id
@@ -84,7 +84,7 @@ pub async fn get_subject_stats(pool: &MySqlPool, user_id: i64) -> Vec<SubjectSco
 pub async fn get_difficulty_breakdown(pool: &MySqlPool, user_id: i64) -> Vec<DifficultyScore> {
     let rows = sqlx::query(
         "SELECT ev.difficulty,
-                COALESCE(AVG(ea.score), 0) AS avg_score,
+                CAST(COALESCE(AVG(ea.score), 0) AS DOUBLE) AS avg_score,
                 COUNT(ea.id) AS attempt_count
          FROM exam_attempts ea
          JOIN exam_versions ev ON ev.id = ea.exam_version_id

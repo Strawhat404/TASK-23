@@ -133,7 +133,7 @@ mod tests {
             let rt = tokio::runtime::Runtime::new().unwrap();
             let rocket = rt.block_on(db_rocket()).expect(
                 "TEST_DATABASE_URL (or DATABASE_URL) must be set and connectable to run DB tests.\n\
-                 To skip DB tests locally: cargo test --package backend -- --skip login --skip customer --skip add_to_cart --skip confirm_order --skip scan_voucher"
+                 To skip DB tests locally: cargo test --package backend -- --skip login --skip customer --skip staff --skip add_to_cart --skip confirm_order --skip scan_voucher --skip nonexistent --skip training"
             );
             (rt, rocket)
         }};
@@ -334,5 +334,175 @@ mod tests {
             "cancelled-order voucher must flag mismatch, got: {}",
             body
         );
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // Additional no-DB tests
+    // ══════════════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn health_live_body_is_valid_json() {
+        let client = Client::tracked(no_db_rocket()).expect("valid rocket");
+        let resp = client.get("/health/live").dispatch();
+        let body = resp.into_string().unwrap_or_default();
+        let parsed: serde_json::Value = serde_json::from_str(&body)
+            .expect("health response must be valid JSON");
+        assert!(parsed["success"].as_bool().unwrap_or(false), "expected success=true");
+        assert_eq!(parsed["data"].as_str(), Some("alive"));
+    }
+
+    #[test]
+    fn empty_cookie_value_returns_401() {
+        let client = Client::tracked(no_db_rocket()).expect("valid rocket");
+        let resp = client
+            .get("/test/auth-required")
+            .cookie(rocket::http::Cookie::new("brewflow_session", ""))
+            .dispatch();
+        assert_eq!(resp.status(), Status::Unauthorized);
+    }
+
+    #[test]
+    fn missing_signature_separator_returns_401() {
+        let client = Client::tracked(no_db_rocket()).expect("valid rocket");
+        let resp = client
+            .get("/test/admin-required")
+            .cookie(rocket::http::Cookie::new(
+                "brewflow_session",
+                "noseparatorhere",
+            ))
+            .dispatch();
+        assert_eq!(resp.status(), Status::Unauthorized);
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // Additional DB-dependent tests
+    // ══════════════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn login_response_contains_user_info() {
+        let (_rt, rocket) = require_db!();
+        let client = Client::tracked(rocket).expect("valid rocket");
+        let resp = client
+            .post("/api/auth/login")
+            .header(ContentType::JSON)
+            .body(r#"{"username":"admin","password":"AdminPass123!"}"#)
+            .dispatch();
+        assert_eq!(resp.status(), Status::Ok);
+        let body: serde_json::Value =
+            serde_json::from_str(&resp.into_string().unwrap_or_default())
+                .expect("valid JSON");
+        let user = &body["data"]["user"];
+        assert_eq!(user["username"].as_str(), Some("admin"));
+        assert!(user["roles"].as_array().map_or(false, |r| !r.is_empty()));
+    }
+
+    #[test]
+    fn login_with_empty_body_returns_error() {
+        let (_rt, rocket) = require_db!();
+        let client = Client::tracked(rocket).expect("valid rocket");
+        let resp = client
+            .post("/api/auth/login")
+            .header(ContentType::JSON)
+            .body("{}")
+            .dispatch();
+        // Missing username/password should not return 200
+        assert_ne!(resp.status(), Status::Ok);
+    }
+
+    #[test]
+    fn staff_can_access_staff_orders() {
+        let (_rt, rocket) = require_db!();
+        let client = Client::tracked(rocket).expect("valid rocket");
+        let cookie = login(&client, "staff", "StaffPass123!");
+
+        let resp = client
+            .get("/api/staff/orders")
+            .cookie(rocket::http::Cookie::new("brewflow_session", cookie))
+            .dispatch();
+        assert_eq!(resp.status(), Status::Ok);
+        let body: serde_json::Value =
+            serde_json::from_str(&resp.into_string().unwrap_or_default())
+                .expect("valid JSON");
+        assert!(body["success"].as_bool().unwrap_or(false));
+    }
+
+    #[test]
+    fn staff_dashboard_returns_counts() {
+        let (_rt, rocket) = require_db!();
+        let client = Client::tracked(rocket).expect("valid rocket");
+        let cookie = login(&client, "staff", "StaffPass123!");
+
+        let resp = client
+            .get("/api/staff/dashboard/counts")
+            .cookie(rocket::http::Cookie::new("brewflow_session", cookie))
+            .dispatch();
+        assert_eq!(resp.status(), Status::Ok);
+        let body: serde_json::Value =
+            serde_json::from_str(&resp.into_string().unwrap_or_default())
+                .expect("valid JSON");
+        let data = &body["data"];
+        assert!(data["pending_count"].is_number());
+        assert!(data["in_prep_count"].is_number());
+        assert!(data["ready_count"].is_number());
+    }
+
+    #[test]
+    fn customer_can_list_own_orders() {
+        let (_rt, rocket) = require_db!();
+        let client = Client::tracked(rocket).expect("valid rocket");
+        let cookie = login(&client, "customer", "CustomerPass123!");
+
+        let resp = client
+            .get("/api/orders")
+            .cookie(rocket::http::Cookie::new("brewflow_session", cookie))
+            .dispatch();
+        assert_eq!(resp.status(), Status::Ok);
+        let body: serde_json::Value =
+            serde_json::from_str(&resp.into_string().unwrap_or_default())
+                .expect("valid JSON");
+        assert!(body["success"].as_bool().unwrap_or(false));
+        assert!(body["data"].is_array());
+    }
+
+    #[test]
+    fn nonexistent_voucher_scan_returns_404() {
+        let (_rt, rocket) = require_db!();
+        let client = Client::tracked(rocket).expect("valid rocket");
+        let cookie = login(&client, "staff", "StaffPass123!");
+
+        let resp = client
+            .post("/api/staff/scan")
+            .header(ContentType::JSON)
+            .cookie(rocket::http::Cookie::new("brewflow_session", cookie))
+            .body(r#"{"voucher_code":"NONEXISTENT-CODE-999"}"#)
+            .dispatch();
+        assert_eq!(resp.status(), Status::NotFound);
+    }
+
+    #[test]
+    fn training_attempts_requires_auth() {
+        let (_rt, rocket) = require_db!();
+        let client = Client::tracked(rocket).expect("valid rocket");
+
+        let resp = client.get("/api/training/attempts").dispatch();
+        assert_eq!(resp.status(), Status::Unauthorized);
+    }
+
+    #[test]
+    fn training_analytics_returns_data_for_customer() {
+        let (_rt, rocket) = require_db!();
+        let client = Client::tracked(rocket).expect("valid rocket");
+        let cookie = login(&client, "customer", "CustomerPass123!");
+
+        let resp = client
+            .get("/api/training/analytics")
+            .cookie(rocket::http::Cookie::new("brewflow_session", cookie))
+            .dispatch();
+        assert_eq!(resp.status(), Status::Ok);
+        let body: serde_json::Value =
+            serde_json::from_str(&resp.into_string().unwrap_or_default())
+                .expect("valid JSON");
+        assert!(body["success"].as_bool().unwrap_or(false));
+        assert!(body["data"]["overall_score"].is_number());
     }
 }

@@ -238,3 +238,116 @@ impl fmt::Display for SnapshotType {
         write!(f, "{}", s)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ── Role ──────────────────────────────────────────────────────────────
+
+    #[test]
+    fn role_serde_round_trip() {
+        let json = serde_json::to_string(&Role::Admin).unwrap();
+        assert_eq!(json, r#""admin""#);
+        let back: Role = serde_json::from_str(&json).unwrap();
+        assert_eq!(back, Role::Admin);
+    }
+
+    #[test]
+    fn role_display() {
+        assert_eq!(Role::Customer.to_string(), "customer");
+        assert_eq!(Role::AcademicAffairs.to_string(), "academic_affairs");
+    }
+
+    // ── Locale ────────────────────────────────────────────────────────────
+
+    #[test]
+    fn locale_from_str_defaults_to_english() {
+        assert_eq!(Locale::from_str("en"), Locale::En);
+        assert_eq!(Locale::from_str("unknown"), Locale::En);
+        assert_eq!(Locale::from_str(""), Locale::En);
+    }
+
+    #[test]
+    fn locale_from_str_recognizes_chinese_variants() {
+        assert_eq!(Locale::from_str("zh"), Locale::Zh);
+        assert_eq!(Locale::from_str("zh-CN"), Locale::Zh);
+        assert_eq!(Locale::from_str("zh-TW"), Locale::Zh);
+        assert_eq!(Locale::from_str("ZH"), Locale::Zh);
+    }
+
+    #[test]
+    fn locale_display_and_to_str() {
+        assert_eq!(Locale::En.to_str(), "en");
+        assert_eq!(Locale::Zh.to_str(), "zh");
+        assert_eq!(Locale::En.to_string(), "en");
+    }
+
+    // ── OrderStatus ───────────────────────────────────────────────────────
+
+    #[test]
+    fn order_status_serde_round_trip() {
+        let json = serde_json::to_string(&OrderStatus::InPrep).unwrap();
+        assert_eq!(json, r#""in_prep""#);
+        let back: OrderStatus = serde_json::from_str(&json).unwrap();
+        assert_eq!(back, OrderStatus::InPrep);
+    }
+
+    #[test]
+    fn terminal_statuses_have_no_transitions() {
+        assert!(OrderStatus::PickedUp.allowed_transitions().is_empty());
+        assert!(OrderStatus::Canceled.allowed_transitions().is_empty());
+    }
+
+    #[test]
+    fn pending_can_transition_to_accepted_or_canceled() {
+        let transitions = OrderStatus::Pending.allowed_transitions();
+        assert!(transitions.contains(&OrderStatus::Accepted));
+        assert!(transitions.contains(&OrderStatus::Canceled));
+        assert_eq!(transitions.len(), 2);
+    }
+
+    #[test]
+    fn ready_can_transition_to_picked_up_or_canceled() {
+        let transitions = OrderStatus::Ready.allowed_transitions();
+        assert!(transitions.contains(&OrderStatus::PickedUp));
+        assert!(transitions.contains(&OrderStatus::Canceled));
+    }
+
+    // ── ReservationStatus ─────────────────────────────────────────────────
+
+    #[test]
+    fn reservation_status_serde() {
+        let json = serde_json::to_string(&ReservationStatus::Held).unwrap();
+        assert_eq!(json, r#""held""#);
+    }
+
+    // ── QuestionType ──────────────────────────────────────────────────────
+
+    #[test]
+    fn question_type_display() {
+        assert_eq!(QuestionType::SingleChoice.to_string(), "single_choice");
+        assert_eq!(QuestionType::MultipleChoice.to_string(), "multiple_choice");
+        assert_eq!(QuestionType::TrueFalse.to_string(), "true_false");
+    }
+
+    // ── Difficulty ────────────────────────────────────────────────────────
+
+    #[test]
+    fn difficulty_serde_round_trip() {
+        for d in [Difficulty::Easy, Difficulty::Medium, Difficulty::Hard, Difficulty::Mixed] {
+            let json = serde_json::to_string(&d).unwrap();
+            let back: Difficulty = serde_json::from_str(&json).unwrap();
+            assert_eq!(back, d);
+        }
+    }
+
+    // ── ExamAttemptStatus ─────────────────────────────────────────────────
+
+    #[test]
+    fn exam_attempt_status_display() {
+        assert_eq!(ExamAttemptStatus::InProgress.to_string(), "in_progress");
+        assert_eq!(ExamAttemptStatus::Completed.to_string(), "completed");
+        assert_eq!(ExamAttemptStatus::Abandoned.to_string(), "abandoned");
+    }
+}

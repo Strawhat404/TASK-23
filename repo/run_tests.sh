@@ -74,9 +74,12 @@ echo ""
 # ── Step 3: Build + run tests in a Rust container ─────────────────────────
 TEST_DATABASE_URL="mysql://root:${DB_PASSWORD}@${DB_CONTAINER}/${DB_NAME}"
 
-echo "[3/5] Building backend and running tests..."
+echo "[3/4] Building and running tests..."
 echo "      DB: $TEST_DATABASE_URL"
 echo ""
+
+CACHE_VOLUME="${COMPOSE_PROJECT}-cargo-cache"
+docker volume create "$CACHE_VOLUME" > /dev/null 2>&1 || true
 
 docker rm -f "$TEST_CONTAINER" 2>/dev/null || true
 docker run \
@@ -90,13 +93,14 @@ docker run \
     -e ENCRYPTION_KEY="test-encryption-key-1234567890ab" \
     -e CARGO_TARGET_DIR="/tmp/target" \
     -v "$REPO_DIR:/app:ro" \
+    -v "$CACHE_VOLUME:/tmp/target" \
     -w /app \
     rust:1.88-bookworm \
     bash -c '
         apt-get update -qq && apt-get install -y -qq pkg-config libssl-dev > /dev/null 2>&1
         echo ""
-        echo "[4/5] cargo check --package backend ..."
-        cargo check --package backend
+        echo "[4/5] cargo test --package shared (unit tests) ..."
+        cargo test --package shared
         echo "      OK"
         echo ""
         echo "[5/5] cargo test --package backend (ALL tests — DB available) ..."

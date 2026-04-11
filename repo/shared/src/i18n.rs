@@ -226,3 +226,72 @@ pub fn init_translations() -> Translations {
 
     Translations { map }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn english_translation_exists() {
+        let t = init_translations();
+        assert_eq!(t.t("en", "nav.home"), "Home");
+        assert_eq!(t.t("en", "btn.checkout"), "Checkout");
+        assert_eq!(t.t("en", "label.total"), "Total");
+    }
+
+    #[test]
+    fn chinese_translation_exists() {
+        let t = init_translations();
+        // Chinese translations should not be empty or fall back to key
+        let home = t.t("zh", "nav.home");
+        assert_ne!(home, "nav.home", "zh nav.home should not fall back to key");
+        assert!(!home.is_empty());
+    }
+
+    #[test]
+    fn missing_key_returns_key_itself() {
+        let t = init_translations();
+        assert_eq!(t.t("en", "nonexistent.key"), "nonexistent.key");
+        assert_eq!(t.t("zh", "nonexistent.key"), "nonexistent.key");
+    }
+
+    #[test]
+    fn unknown_locale_falls_back_to_key() {
+        let t = init_translations();
+        assert_eq!(t.t("fr", "nav.home"), "nav.home");
+    }
+
+    #[test]
+    fn all_english_keys_have_chinese_counterpart() {
+        let t = init_translations();
+        let en_keys = t.map.get("en").unwrap();
+        let zh_keys = t.map.get("zh").unwrap();
+        for key in en_keys.keys() {
+            assert!(
+                zh_keys.contains_key(key),
+                "missing zh translation for key: {}",
+                key
+            );
+        }
+    }
+
+    #[test]
+    fn all_chinese_keys_have_english_counterpart() {
+        let t = init_translations();
+        let en_keys = t.map.get("en").unwrap();
+        let zh_keys = t.map.get("zh").unwrap();
+        for key in zh_keys.keys() {
+            assert!(
+                en_keys.contains_key(key),
+                "missing en translation for key: {}",
+                key
+            );
+        }
+    }
+
+    #[test]
+    fn free_function_t_works() {
+        let translations = init_translations();
+        assert_eq!(t(&translations, "en", "nav.menu"), "Menu");
+    }
+}

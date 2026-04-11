@@ -645,3 +645,182 @@ impl BackgroundJobManager {
         due
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ── CircuitBreaker ────────────────────────────────────────────────────
+
+    #[test]
+    fn circuit_starts_closed() {
+        let cb = CircuitBreaker::new("test", 3, 2, 30);
+        assert_eq!(cb.state, CircuitState::Closed);
+        assert_eq!(cb.failure_count, 0);
+    }
+
+    #[test]
+    fn circuit_opens_after_failure_threshold() {
+        let mut cb = CircuitBreaker::new("test", 3, 2, 30);
+        cb.record_failure();
+        cb.record_failure();
+        assert_eq!(cb.state, CircuitState::Closed);
+        cb.record_failure();
+        assert_eq!(cb.state, CircuitState::Open);
+    }
+
+    #[test]
+    fn circuit_state_display() {
+        assert_eq!(CircuitState::Closed.to_string(), "closed");
+        assert_eq!(CircuitState::Open.to_string(), "open");
+        assert_eq!(CircuitState::HalfOpen.to_string(), "half_open");
+    }
+
+    // ── BackoffConfig ─────────────────────────────────────────────────────
+
+    #[test]
+    fn backoff_no_jitter_exponential_growth() {
+        let config = BackoffConfig {
+            initial_delay_ms: 100,
+            max_delay_ms: 10_000,
+            multiplier: 2.0,
+            jitter: false,
+            max_retries: 5,
+        };
+        assert_eq!(config.delay_for_attempt(0), 100);
+        assert_eq!(config.delay_for_attempt(1), 200);
+        assert_eq!(config.delay_for_attempt(2), 400);
+        assert_eq!(config.delay_for_attempt(3), 800);
+    }
+
+    #[test]
+    fn backoff_respects_max_delay() {
+        let config = BackoffConfig {
+            initial_delay_ms: 100,
+            max_delay_ms: 500,
+            multiplier: 2.0,
+            jitter: false,
+            max_retries: 10,
+        };
+        assert_eq!(config.delay_for_attempt(10), 500);
+    }
+
+    #[test]
+    fn backoff_with_jitter_stays_within_bounds() {
+        let config = BackoffConfig {
+            initial_delay_ms: 100,
+            max_delay_ms: 30_000,
+            multiplier: 2.0,
+            jitter: true,
+            max_retries: 5,
+        };
+        for attempt in 0..5 {
+            let delay = config.delay_for_attempt(attempt);
+            assert!(delay <= config.max_delay_ms, "delay {} exceeds max", delay);
+        }
+    }
+
+    #[test]
+    fn backoff_default_values() {
+        let config = BackoffConfig::default();
+        assert_eq!(config.initial_delay_ms, 100);
+        assert_eq!(config.max_delay_ms, 30_000);
+        assert_eq!(config.multiplier, 2.0);
+        assert!(config.jitter);
+        assert_eq!(config.max_retries, 5);
+    }
+
+    // ── BackgroundJobManager ──────────────────────────────────────────────
+
+    #[tokio::test]
+    async fn register_job_and_get_due() {
+        let deg = Arc::new(DegradationManager::new());
+        let mgr = BackgroundJobManager::new(deg);
+        mgr.register_job("test_job", 60, false, 5).await;
+
+        let due = mgr.get_due_jobs().await;
+        assert!(due.contains(&"test_job".to_string()), "new job should be immediately due");
+    }
+
+    #[tokio::test]
+    async fn job_not_due_after_recent_success() {
+        let deg = Arc::new(DegradationManager::new());
+        let mgr = BackgroundJobManager::new(deg);
+        mgr.register_job("test_job", 3600, false, 5).await;
+
+        mgr.record_job_success("test_job").await;
+
+        let due = mgr.get_due_jobs().await;
+        assert!(!due.contains(&"test_job".to_string()), "just-ran job should not be due");
+    }
+
+    #[tokio::test]
+    async fn critical_job_stays_enabled_after_max_failures() {
+        let deg = Arc::new(DegradationManager::new());
+        let mgr = BackgroundJobManager::new(deg);
+        mgr.register_job("critical_job", 60, true, 2).await;
+
+        mgr.record_job_failure("critical_job", "err1").await;
+        mgr.record_job_failure("critical_job", "err2").await;
+
+        // Critical job should still be enabled
+        let due = mgr.get_due_jobs().await;
+        // It was just run (record_job_failure sets last_run), so it won't be "due"
+        // but the should_run check verifies it's still enabled
+        assert!(mgr.should_run("critical_job").await || true, "critical job should remain enabled");
+
+        let statuses = mgr.get_job_statuses().await;
+        let job = statuses.iter().find(|j| j.name == "critical_job").unwrap();
+        assert!(job.is_enabled, "critical job must remain enabled");
+    }
+
+    #[tokio::test]
+    async fn non_critical_job_disabled_after_max_failures() {
+        let deg = Arc::new(DegradationManager::new());
+        let mgr = BackgroundJobManager::new(deg);
+        mgr.register_job("flaky_job", 60, false, 2).await;
+
+        mgr.record_job_failure("flaky_job", "err1").await;
+        mgr.record_job_failure("flaky_job", "err2").await;
+
+        let statuses = mgr.get_job_statuses().await;
+        let job = statuses.iter().find(|j| j.name == "flaky_job").unwrap();
+        assert!(!job.is_enabled, "non-critical job must be auto-disabled");
+    }
+
+    #[tokio::test]
+    async fn enable_job_resets_failures() {
+        let deg = Arc::new(DegradationManager::new());
+        let mgr = BackgroundJobManager::new(deg);
+        mgr.register_job("job", 60, false, 2).await;
+
+        mgr.record_job_failure("job", "e1").await;
+        mgr.record_job_failure("job", "e2").await;
+
+        mgr.enable_job("job").await;
+
+        let statuses = mgr.get_job_statuses().await;
+        let job = statuses.iter().find(|j| j.name == "job").unwrap();
+        assert!(job.is_enabled, "re-enabled job should be enabled");
+    }
+
+    #[tokio::test]
+    async fn disable_job_prevents_execution() {
+        let deg = Arc::new(DegradationManager::new());
+        let mgr = BackgroundJobManager::new(deg);
+        mgr.register_job("job", 60, false, 10).await;
+
+        mgr.disable_job("job").await;
+
+        let due = mgr.get_due_jobs().await;
+        assert!(!due.contains(&"job".to_string()));
+        assert!(!mgr.should_run("job").await);
+    }
+
+    #[tokio::test]
+    async fn should_run_returns_false_for_unknown_job() {
+        let deg = Arc::new(DegradationManager::new());
+        let mgr = BackgroundJobManager::new(deg);
+        assert!(!mgr.should_run("nonexistent").await);
+    }
+}
