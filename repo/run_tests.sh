@@ -117,14 +117,17 @@ if [ "${1:-}" != "--skip-e2e" ] && [ -f "$REPO_DIR/e2e/Dockerfile" ]; then
     echo ""
     echo "[5/5] Building and running browser E2E tests..."
     E2E_IMAGE="${COMPOSE_PROJECT}-e2e-img"
-    docker build -t "$E2E_IMAGE" "$REPO_DIR/e2e" > /dev/null 2>&1
-    docker rm -f "$E2E_CONTAINER" 2>/dev/null || true
-    docker run \
-        --name "$E2E_CONTAINER" \
-        --network "$NETWORK" \
-        -e BASE_URL="http://${DB_CONTAINER}:8080" \
-        -e API_URL="http://${DB_CONTAINER}:8000" \
-        "$E2E_IMAGE" || echo "      [WARN] Browser E2E tests require a running frontend+backend. Skipped."
+    if docker build -t "$E2E_IMAGE" "$REPO_DIR/e2e" > /dev/null 2>&1; then
+        docker rm -f "$E2E_CONTAINER" 2>/dev/null || true
+        docker run \
+            --name "$E2E_CONTAINER" \
+            --network "$NETWORK" \
+            -e BASE_URL="http://${DB_CONTAINER}:8080" \
+            -e API_URL="http://${DB_CONTAINER}:8000" \
+            "$E2E_IMAGE" || echo "      [WARN] Browser E2E tests require a running frontend+backend. Skipped."
+    else
+        echo "      [WARN] Browser E2E image build failed. Skipped."
+    fi
 fi
 
 echo ""
