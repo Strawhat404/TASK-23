@@ -1,5 +1,5 @@
 use rocket::fairing::{Fairing, Info, Kind};
-use rocket::{Data, Request, Response};
+use rocket::{Request, Response};
 use serde_json::Value;
 use std::io::Cursor;
 
@@ -171,7 +171,7 @@ mod tests {
         assert_eq!(info.name, "Log Mask Fairing");
         // Kind is a bitflag-style set in Rocket; verify Response is present.
         assert!(
-            info.kind.contains(rocket::fairing::Kind::Response),
+            (info.kind & rocket::fairing::Kind::Response) == rocket::fairing::Kind::Response,
             "fairing must declare Response kind"
         );
     }
