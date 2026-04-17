@@ -7,6 +7,11 @@ use crate::components::hold_timer::HoldTimer;
 use crate::state::AppState;
 use shared::dto::{ApiResponse, OrderDetail, OrderSummary};
 
+/// Returns true if the order status allows cancellation by the customer.
+pub(crate) fn can_cancel(status: &str) -> bool {
+    matches!(status, "Pending" | "Accepted" | "InPrep")
+}
+
 fn format_datetime(raw: &str, locale: &str) -> String {
     if let Ok(dt) = chrono::NaiveDateTime::parse_from_str(raw, "%Y-%m-%dT%H:%M:%S") {
         if locale == "zh" {
@@ -273,5 +278,40 @@ pub fn OrderDetailPage(locale: String, id: i64) -> Element {
             }
             Footer {}
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn pending_can_cancel() {
+        assert!(can_cancel("Pending"));
+    }
+
+    #[test]
+    fn accepted_can_cancel() {
+        assert!(can_cancel("Accepted"));
+    }
+
+    #[test]
+    fn in_prep_can_cancel() {
+        assert!(can_cancel("InPrep"));
+    }
+
+    #[test]
+    fn ready_cannot_cancel() {
+        assert!(!can_cancel("Ready"));
+    }
+
+    #[test]
+    fn picked_up_cannot_cancel() {
+        assert!(!can_cancel("PickedUp"));
+    }
+
+    #[test]
+    fn canceled_cannot_cancel() {
+        assert!(!can_cancel("Canceled"));
     }
 }

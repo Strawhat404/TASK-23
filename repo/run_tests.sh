@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Run the BriefFlow backend test suite inside Docker.
+# Run the BrewFlow backend test suite inside Docker.
 # Usage: ./run_tests.sh  (from the repo/ directory)
 #
 # Spins up a MySQL container, builds the backend in a Rust container,
@@ -27,7 +27,7 @@ cleanup() {
 trap cleanup EXIT
 
 echo "============================================"
-echo "  BriefFlow — Dockerised Test Suite"
+echo "  BrewFlow — Dockerised Test Suite"
 echo "============================================"
 echo ""
 
@@ -74,7 +74,13 @@ echo ""
 # ── Step 3: Build + run tests in a Rust container ─────────────────────────
 TEST_DATABASE_URL="mysql://root:${DB_PASSWORD}@${DB_CONTAINER}/${DB_NAME}"
 
-echo "[3/4] Building and running tests..."
+echo "[3/5] Building test runner image (dependencies pre-installed)..."
+TEST_IMAGE="${COMPOSE_PROJECT}-runner-img"
+docker build -t "$TEST_IMAGE" -f "$REPO_DIR/Dockerfile.test" "$REPO_DIR" > /dev/null 2>&1
+echo "      Image ready: $TEST_IMAGE"
+echo ""
+
+echo "[4/5] Running tests..."
 echo "      DB: $TEST_DATABASE_URL"
 echo ""
 
@@ -95,17 +101,31 @@ docker run \
     -v "$REPO_DIR:/app:ro" \
     -v "$CACHE_VOLUME:/tmp/target" \
     -w /app \
-    rust:1.88-bookworm \
+    "$TEST_IMAGE" \
     bash -c '
-        apt-get update -qq && apt-get install -y -qq pkg-config libssl-dev > /dev/null 2>&1
-        echo ""
-        echo "[4/5] cargo test --package shared (unit tests) ..."
+        echo "[4a/5] cargo test --package shared (unit tests) ..."
         cargo test --package shared
         echo "      OK"
         echo ""
-        echo "[5/5] cargo test --package backend (ALL tests — DB available) ..."
+        echo "[4b/5] cargo test --package backend (ALL tests — DB available) ..."
         cargo test --package backend -- --nocapture
     '
+
+# ── Step 5: Browser E2E tests (optional — skipped if --skip-e2e) ──────────
+E2E_CONTAINER="${COMPOSE_PROJECT}-e2e"
+if [ "${1:-}" != "--skip-e2e" ] && [ -f "$REPO_DIR/e2e/Dockerfile" ]; then
+    echo ""
+    echo "[5/5] Building and running browser E2E tests..."
+    E2E_IMAGE="${COMPOSE_PROJECT}-e2e-img"
+    docker build -t "$E2E_IMAGE" "$REPO_DIR/e2e" > /dev/null 2>&1
+    docker rm -f "$E2E_CONTAINER" 2>/dev/null || true
+    docker run \
+        --name "$E2E_CONTAINER" \
+        --network "$NETWORK" \
+        -e BASE_URL="http://${DB_CONTAINER}:8080" \
+        -e API_URL="http://${DB_CONTAINER}:8000" \
+        "$E2E_IMAGE" || echo "      [WARN] Browser E2E tests require a running frontend+backend. Skipped."
+fi
 
 echo ""
 echo "============================================"

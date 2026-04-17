@@ -144,4 +144,81 @@ mod tests {
         let c = make_claims(&["Customer"]);
         assert!(!c.roles.iter().any(|r| r == "Admin" || r == "Staff"));
     }
+
+    // ── hash_password / verify_password ────────────────────────────────────
+
+    #[test]
+    fn hash_password_produces_non_empty_bcrypt_hash() {
+        let hash = hash_password("CorrectHorse1!");
+        // bcrypt hashes always start with "$2b$" or "$2a$" at cost-aware versions.
+        assert!(hash.starts_with("$2"), "unexpected hash prefix: {}", hash);
+        assert!(hash.len() >= 60, "bcrypt hash too short: {}", hash);
+    }
+
+    #[test]
+    fn hash_password_differs_for_same_input_due_to_salt() {
+        let h1 = hash_password("samePassw0rd!");
+        let h2 = hash_password("samePassw0rd!");
+        assert_ne!(h1, h2, "bcrypt must salt, making repeated hashes differ");
+    }
+
+    #[test]
+    fn verify_password_accepts_matching_plaintext() {
+        let pw = "Tr0ub4dor&3long";
+        let hash = hash_password(pw);
+        assert!(verify_password(pw, &hash));
+    }
+
+    #[test]
+    fn verify_password_rejects_mismatching_plaintext() {
+        let hash = hash_password("Tr0ub4dor&3long");
+        assert!(!verify_password("wrong-password", &hash));
+    }
+
+    #[test]
+    fn verify_password_false_for_malformed_hash() {
+        assert!(!verify_password("anything", "not-a-bcrypt-hash"));
+    }
+
+    // ── Claims serde ───────────────────────────────────────────────────────
+
+    #[test]
+    fn claims_round_trips_through_json() {
+        let c = Claims {
+            sub: 9,
+            username: "bob".into(),
+            roles: vec!["Admin".into(), "Staff".into()],
+            exp: 1234567890,
+        };
+        let json = serde_json::to_string(&c).unwrap();
+        let back: Claims = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.sub, 9);
+        assert_eq!(back.username, "bob");
+        assert_eq!(back.roles, vec!["Admin", "Staff"]);
+    }
+
+    // ── Unicode & length edge-cases ────────────────────────────────────────
+
+    #[test]
+    fn validate_password_counts_chars_not_bytes_for_length() {
+        // 12 ascii chars satisfies policy
+        assert!(validate_password("abcABC123!@#").is_ok());
+        // 11 chars fails
+        let err = validate_password("abcABC123!@").unwrap_err();
+        assert!(err.iter().any(|e| e.contains("12 characters")));
+    }
+
+    #[test]
+    fn validate_password_whitespace_counts_as_special() {
+        // "Aa1 aaaaaaaa" — space is non-alphanumeric → satisfies "special char"
+        let res = validate_password("Aa1 aaaaaaaa");
+        assert!(res.is_ok(), "space should qualify as special: got {:?}", res);
+    }
+
+    #[test]
+    fn validate_empty_password_is_rejected() {
+        let errs = validate_password("").unwrap_err();
+        // empty password violates length, upper, lower, digit, and special.
+        assert!(errs.len() >= 4, "expected multiple violations, got: {:?}", errs);
+    }
 }

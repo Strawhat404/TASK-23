@@ -5,6 +5,16 @@ use crate::components::price_display::PriceDisplay;
 use shared::dto::{ApiResponse, ProductListItem};
 use shared::models::StoreHours;
 
+/// Builds a welcome message depending on whether the user has a display name and the locale.
+pub(crate) fn welcome_message(display_name: &Option<String>, locale: &str) -> String {
+    match (display_name, locale) {
+        (Some(name), "zh") => format!("\u{6b22}\u{8fce}, {}!", name),
+        (Some(name), _) => format!("Welcome, {}!", name),
+        (None, "zh") => "\u{6b22}\u{8fce}!".to_string(),
+        (None, _) => "Welcome!".to_string(),
+    }
+}
+
 #[component]
 pub fn HomePage(locale: String) -> Element {
     let t = shared::i18n::init_translations();
@@ -179,5 +189,34 @@ pub fn HomePage(locale: String) -> Element {
 
             Footer {}
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn welcome_with_name_en() {
+        let msg = welcome_message(&Some("Alice".to_string()), "en");
+        assert_eq!(msg, "Welcome, Alice!");
+    }
+
+    #[test]
+    fn welcome_without_name_en() {
+        let msg = welcome_message(&None, "en");
+        assert_eq!(msg, "Welcome!");
+    }
+
+    #[test]
+    fn welcome_with_name_zh() {
+        let msg = welcome_message(&Some("Alice".to_string()), "zh");
+        assert!(msg.contains("Alice"));
+    }
+
+    #[test]
+    fn welcome_without_name_zh() {
+        let msg = welcome_message(&None, "zh");
+        assert!(!msg.is_empty());
     }
 }

@@ -8,6 +8,11 @@ const INPUT: &str = "w-full px-3 py-2.5 border border-gray-300 rounded-lg text-s
 const BTN_SUBMIT: &str = "w-full inline-flex items-center justify-center px-5 py-2.5 rounded-lg text-sm font-medium bg-primary text-white hover:bg-primary-dark transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer";
 const SELECT: &str = "w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-primary bg-white";
 
+/// Returns true if both username and password are non-empty.
+pub(crate) fn validate_login_input(username: &str, password: &str) -> bool {
+    !username.trim().is_empty() && !password.trim().is_empty()
+}
+
 // ── Login ────────────────────────────────────────────────────────────────────
 
 #[component]
@@ -298,5 +303,35 @@ pub fn RegisterPage(locale: String) -> Element {
 
             Footer {}
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn empty_username_fails() {
+        assert!(!validate_login_input("", "password123"));
+    }
+
+    #[test]
+    fn empty_password_fails() {
+        assert!(!validate_login_input("admin", ""));
+    }
+
+    #[test]
+    fn both_empty_fails() {
+        assert!(!validate_login_input("", ""));
+    }
+
+    #[test]
+    fn valid_input_passes() {
+        assert!(validate_login_input("admin", "password123"));
+    }
+
+    #[test]
+    fn whitespace_only_fails() {
+        assert!(!validate_login_input("   ", "  "));
     }
 }

@@ -371,3 +371,186 @@ pub async fn get_exam_questions(
     }
     result
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use chrono::NaiveDate;
+
+    fn sample_dt() -> chrono::NaiveDateTime {
+        NaiveDate::from_ymd_opt(2026, 4, 15)
+            .unwrap()
+            .and_hms_opt(12, 0, 0)
+            .unwrap()
+    }
+
+    // ── Subject ──────────────────────────────────────────────────────────
+
+    #[test]
+    fn subject_construction() {
+        let s = Subject {
+            id: 1,
+            name_en: "Espresso Basics".to_string(),
+            name_zh: "\u{6d53}\u{7f29}\u{5496}\u{5561}\u{57fa}\u{7840}".to_string(),
+            created_at: sample_dt(),
+        };
+        assert_eq!(s.id, 1);
+        assert_eq!(s.name_en, "Espresso Basics");
+    }
+
+    #[test]
+    fn subject_serde_round_trip() {
+        let s = Subject {
+            id: 5,
+            name_en: "Latte Art".to_string(),
+            name_zh: "\u{62c9}\u{82b1}".to_string(),
+            created_at: sample_dt(),
+        };
+        let json = serde_json::to_string(&s).unwrap();
+        let back: Subject = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.id, 5);
+        assert_eq!(back.name_en, "Latte Art");
+    }
+
+    // ── Chapter ──────────────────────────────────────────────────────────
+
+    #[test]
+    fn chapter_construction() {
+        let c = Chapter {
+            id: 1,
+            subject_id: 3,
+            name_en: "Grind Size".to_string(),
+            name_zh: "\u{7814}\u{78e8}\u{5ea6}".to_string(),
+            sort_order: 1,
+        };
+        assert_eq!(c.subject_id, 3);
+        assert_eq!(c.sort_order, 1);
+    }
+
+    #[test]
+    fn chapter_serde_round_trip() {
+        let c = Chapter {
+            id: 10,
+            subject_id: 2,
+            name_en: "Extraction".to_string(),
+            name_zh: "\u{8403}\u{53d6}".to_string(),
+            sort_order: 2,
+        };
+        let json = serde_json::to_string(&c).unwrap();
+        let back: Chapter = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.id, 10);
+        assert_eq!(back.sort_order, 2);
+    }
+
+    // ── Question ─────────────────────────────────────────────────────────
+
+    #[test]
+    fn question_construction() {
+        let q = Question {
+            id: 1,
+            subject_id: 1,
+            chapter_id: Some(2),
+            difficulty: "medium".to_string(),
+            question_text_en: "What is espresso?".to_string(),
+            question_text_zh: None,
+            explanation_en: Some("Espresso is...".to_string()),
+            explanation_zh: None,
+            question_type: "single_choice".to_string(),
+            created_at: sample_dt(),
+            updated_at: None,
+        };
+        assert_eq!(q.id, 1);
+        assert_eq!(q.difficulty, "medium");
+        assert_eq!(q.question_type, "single_choice");
+        assert_eq!(q.chapter_id, Some(2));
+    }
+
+    #[test]
+    fn question_serde_round_trip() {
+        let q = Question {
+            id: 7,
+            subject_id: 3,
+            chapter_id: None,
+            difficulty: "hard".to_string(),
+            question_text_en: "Describe extraction theory.".to_string(),
+            question_text_zh: Some("\u{63cf}\u{8ff0}\u{8403}\u{53d6}\u{7406}\u{8bba}".to_string()),
+            explanation_en: None,
+            explanation_zh: None,
+            question_type: "multiple_choice".to_string(),
+            created_at: sample_dt(),
+            updated_at: Some(sample_dt()),
+        };
+        let json = serde_json::to_string(&q).unwrap();
+        let back: Question = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.id, 7);
+        assert_eq!(back.difficulty, "hard");
+        assert!(back.chapter_id.is_none());
+        assert!(back.question_text_zh.is_some());
+    }
+
+    // ── ExamVersion ──────────────────────────────────────────────────────
+
+    #[test]
+    fn exam_version_construction() {
+        let ev = ExamVersion {
+            id: 1,
+            title_en: "Midterm Exam".to_string(),
+            title_zh: Some("\u{671f}\u{4e2d}\u{8003}\u{8bd5}".to_string()),
+            subject_id: Some(1),
+            chapter_id: None,
+            difficulty: "medium".to_string(),
+            question_count: 20,
+            time_limit_minutes: 30,
+            created_by: Some(5),
+            created_at: sample_dt(),
+            updated_at: None,
+        };
+        assert_eq!(ev.id, 1);
+        assert_eq!(ev.question_count, 20);
+        assert_eq!(ev.time_limit_minutes, 30);
+        assert_eq!(ev.created_by, Some(5));
+    }
+
+    #[test]
+    fn exam_version_serde_round_trip() {
+        let ev = ExamVersion {
+            id: 10,
+            title_en: "Final".to_string(),
+            title_zh: None,
+            subject_id: None,
+            chapter_id: None,
+            difficulty: "hard".to_string(),
+            question_count: 50,
+            time_limit_minutes: 60,
+            created_by: None,
+            created_at: sample_dt(),
+            updated_at: None,
+        };
+        let json = serde_json::to_string(&ev).unwrap();
+        let back: ExamVersion = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.id, 10);
+        assert_eq!(back.difficulty, "hard");
+        assert!(back.subject_id.is_none());
+        assert!(back.created_by.is_none());
+    }
+
+    // ── QuestionOption ───────────────────────────────────────────────────
+
+    #[test]
+    fn question_option_construction_and_round_trip() {
+        let opt = QuestionOption {
+            id: 1,
+            question_id: 5,
+            label: "A".to_string(),
+            content_en: "42".to_string(),
+            content_zh: Some("\u{56db}\u{5341}\u{4e8c}".to_string()),
+            is_correct: true,
+            sort_order: 0,
+        };
+        let json = serde_json::to_string(&opt).unwrap();
+        let back: QuestionOption = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.id, 1);
+        assert_eq!(back.label, "A");
+        assert!(back.is_correct);
+    }
+}

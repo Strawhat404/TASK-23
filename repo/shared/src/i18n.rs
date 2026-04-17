@@ -294,4 +294,76 @@ mod tests {
         let translations = init_translations();
         assert_eq!(t(&translations, "en", "nav.menu"), "Menu");
     }
+
+    // ── extended i18n coverage ──────────────────────────────────────────────
+
+    #[test]
+    fn all_order_statuses_have_translations_in_both_locales() {
+        let t = init_translations();
+        let keys = [
+            "status.pending",
+            "status.accepted",
+            "status.in_prep",
+            "status.ready",
+            "status.picked_up",
+            "status.canceled",
+        ];
+        for k in &keys {
+            assert_ne!(t.t("en", k), *k, "missing en translation for {}", k);
+            assert_ne!(t.t("zh", k), *k, "missing zh translation for {}", k);
+        }
+    }
+
+    #[test]
+    fn hold_warning_and_mismatch_warning_exist() {
+        let t = init_translations();
+        assert_ne!(t.t("en", "msg.hold_warning"), "msg.hold_warning");
+        assert_ne!(t.t("zh", "msg.hold_warning"), "msg.hold_warning");
+        assert_ne!(t.t("en", "msg.mismatch_warning"), "msg.mismatch_warning");
+        assert_ne!(t.t("zh", "msg.mismatch_warning"), "msg.mismatch_warning");
+    }
+
+    #[test]
+    fn button_labels_available_for_all_critical_flows() {
+        let t = init_translations();
+        // Critical CTAs the UI depends on — if any disappear the UI breaks.
+        for key in &[
+            "btn.add_to_cart",
+            "btn.checkout",
+            "btn.confirm",
+            "btn.cancel",
+            "btn.scan",
+            "btn.start_exam",
+            "btn.finish_exam",
+            "btn.import",
+        ] {
+            assert_ne!(t.t("en", key), *key);
+            assert_ne!(t.t("zh", key), *key);
+        }
+    }
+
+    #[test]
+    fn chinese_translations_are_not_identical_to_english() {
+        let t = init_translations();
+        // At least one key should differ between locales — guards against a
+        // copy/paste regression that leaves zh values as raw English.
+        let en = t.map.get("en").unwrap();
+        let zh = t.map.get("zh").unwrap();
+        let differ = en.iter().filter(|(k, v)| zh.get(*k) != Some(*v)).count();
+        assert!(differ > 0, "expected zh to differ from en for most keys");
+    }
+
+    #[test]
+    fn empty_key_returns_empty_key() {
+        let t = init_translations();
+        // Empty key is missing → echoed back.
+        assert_eq!(t.t("en", ""), "");
+    }
+
+    #[test]
+    fn translations_are_clonable() {
+        let t = init_translations();
+        let clone = t.clone();
+        assert_eq!(t.t("en", "nav.home"), clone.t("en", "nav.home"));
+    }
 }

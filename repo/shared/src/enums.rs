@@ -350,4 +350,148 @@ mod tests {
         assert_eq!(ExamAttemptStatus::Completed.to_string(), "completed");
         assert_eq!(ExamAttemptStatus::Abandoned.to_string(), "abandoned");
     }
+
+    // ── Role: full matrix ──────────────────────────────────────────────────
+
+    #[test]
+    fn all_roles_round_trip_through_json() {
+        for r in [
+            Role::Admin,
+            Role::Staff,
+            Role::Customer,
+            Role::AcademicAffairs,
+            Role::Teacher,
+        ] {
+            let json = serde_json::to_string(&r).unwrap();
+            let back: Role = serde_json::from_str(&json).unwrap();
+            assert_eq!(back, r);
+        }
+    }
+
+    #[test]
+    fn roles_display_strings_match_wire_format() {
+        assert_eq!(Role::Admin.to_string(), "admin");
+        assert_eq!(Role::Staff.to_string(), "staff");
+        assert_eq!(Role::Teacher.to_string(), "teacher");
+    }
+
+    #[test]
+    fn role_deserialization_is_strict() {
+        // "Admin" capitalized is not a valid wire value.
+        assert!(serde_json::from_str::<Role>(r#""Admin""#).is_err());
+        assert!(serde_json::from_str::<Role>(r#""UNKNOWN""#).is_err());
+    }
+
+    // ── OrderStatus: full transition matrix ────────────────────────────────
+
+    #[test]
+    fn accepted_can_only_transition_to_in_prep_or_canceled() {
+        let t = OrderStatus::Accepted.allowed_transitions();
+        assert_eq!(t.len(), 2);
+        assert!(t.contains(&OrderStatus::InPrep));
+        assert!(t.contains(&OrderStatus::Canceled));
+    }
+
+    #[test]
+    fn in_prep_can_only_transition_to_ready_or_canceled() {
+        let t = OrderStatus::InPrep.allowed_transitions();
+        assert_eq!(t.len(), 2);
+        assert!(t.contains(&OrderStatus::Ready));
+        assert!(t.contains(&OrderStatus::Canceled));
+    }
+
+    #[test]
+    fn no_order_status_transitions_to_itself() {
+        let all = [
+            OrderStatus::Pending,
+            OrderStatus::Accepted,
+            OrderStatus::InPrep,
+            OrderStatus::Ready,
+            OrderStatus::PickedUp,
+            OrderStatus::Canceled,
+        ];
+        for s in &all {
+            assert!(
+                !s.allowed_transitions().contains(s),
+                "self-transition not allowed for {}",
+                s
+            );
+        }
+    }
+
+    #[test]
+    fn order_status_wire_values_are_snake_case() {
+        assert_eq!(serde_json::to_string(&OrderStatus::PickedUp).unwrap(), r#""picked_up""#);
+        assert_eq!(serde_json::to_string(&OrderStatus::Canceled).unwrap(), r#""canceled""#);
+        assert_eq!(serde_json::to_string(&OrderStatus::Pending).unwrap(), r#""pending""#);
+    }
+
+    // ── ReservationStatus: full round-trip ─────────────────────────────────
+
+    #[test]
+    fn reservation_status_all_variants_round_trip() {
+        for s in [
+            ReservationStatus::Held,
+            ReservationStatus::Confirmed,
+            ReservationStatus::Expired,
+            ReservationStatus::Canceled,
+        ] {
+            let json = serde_json::to_string(&s).unwrap();
+            let back: ReservationStatus = serde_json::from_str(&json).unwrap();
+            assert_eq!(back, s);
+        }
+    }
+
+    #[test]
+    fn reservation_status_display_matches_serde() {
+        assert_eq!(ReservationStatus::Expired.to_string(), "expired");
+        assert_eq!(ReservationStatus::Confirmed.to_string(), "confirmed");
+    }
+
+    // ── Locale: symmetric conversion ───────────────────────────────────────
+
+    #[test]
+    fn locale_round_trips_via_to_str_and_from_str() {
+        for loc in [Locale::En, Locale::Zh] {
+            let back = Locale::from_str(loc.to_str());
+            assert_eq!(back, loc);
+        }
+    }
+
+    // ── SnapshotType ───────────────────────────────────────────────────────
+
+    #[test]
+    fn snapshot_type_display_matches_wire_form() {
+        assert_eq!(SnapshotType::UserScore.to_string(), "user_score");
+        assert_eq!(SnapshotType::DailyActivity.to_string(), "daily_activity");
+    }
+
+    #[test]
+    fn snapshot_type_round_trips() {
+        for s in [
+            SnapshotType::UserScore,
+            SnapshotType::SubjectStats,
+            SnapshotType::DifficultyBreakdown,
+            SnapshotType::DailyActivity,
+        ] {
+            let json = serde_json::to_string(&s).unwrap();
+            let back: SnapshotType = serde_json::from_str(&json).unwrap();
+            assert_eq!(back, s);
+        }
+    }
+
+    // ── QuestionType round-trip ────────────────────────────────────────────
+
+    #[test]
+    fn question_type_round_trips() {
+        for q in [
+            QuestionType::SingleChoice,
+            QuestionType::MultipleChoice,
+            QuestionType::TrueFalse,
+        ] {
+            let json = serde_json::to_string(&q).unwrap();
+            let back: QuestionType = serde_json::from_str(&json).unwrap();
+            assert_eq!(back, q);
+        }
+    }
 }

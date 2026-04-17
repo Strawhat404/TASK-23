@@ -175,4 +175,82 @@ mod tests {
     fn mask_zero_visible() {
         assert_eq!(mask_for_log("hello", 0), "***");
     }
+
+    // ── extra encryption coverage ──────────────────────────────────────────
+
+    #[test]
+    fn encrypt_empty_string_round_trips() {
+        let config = test_config();
+        let enc = encrypt(&config, "");
+        let dec = decrypt(&config, &enc).unwrap();
+        assert_eq!(dec, "");
+    }
+
+    #[test]
+    fn encrypt_unicode_payload_round_trips() {
+        let config = test_config();
+        let plain = "\u{53d6}\u{9910}\u{7801}-CN\u{1f4b0}";
+        let enc = encrypt(&config, plain);
+        let dec = decrypt(&config, &enc).unwrap();
+        assert_eq!(dec, plain);
+    }
+
+    #[test]
+    fn encrypt_long_payload_round_trips() {
+        let config = test_config();
+        let plain: String = std::iter::repeat('a').take(10_000).collect();
+        let enc = encrypt(&config, &plain);
+        let dec = decrypt(&config, &enc).unwrap();
+        assert_eq!(dec, plain);
+    }
+
+    #[test]
+    fn ciphertext_is_base64_safe() {
+        let config = test_config();
+        let enc = encrypt(&config, "BF-ABCDEF");
+        // Standard base64 alphabet plus padding.
+        assert!(
+            enc.chars()
+                .all(|c| c.is_ascii_alphanumeric() || c == '+' || c == '/' || c == '='),
+            "ciphertext must be valid base64: {}",
+            enc
+        );
+    }
+
+    #[test]
+    fn decrypt_corrupted_ciphertext_fails() {
+        let config = test_config();
+        let enc = encrypt(&config, "payload");
+        // Flip a byte in the middle of the ciphertext.
+        let mut bytes = enc.into_bytes();
+        let mid = bytes.len() / 2;
+        bytes[mid] = bytes[mid].wrapping_add(1);
+        let tampered = String::from_utf8(bytes).unwrap();
+        let result = decrypt(&config, &tampered);
+        assert!(result.is_err());
+    }
+
+    // ── CryptoConfig::from_env ─────────────────────────────────────────────
+
+    #[test]
+    fn crypto_config_from_env_key_has_sha256_length() {
+        // std::env is process-global so we avoid mutating it in parallel
+        // tests. Whatever value is present (or absent), the SHA-256 output is
+        // always 32 bytes — that's the safe invariant we can assert.
+        let cfg = CryptoConfig::from_env();
+        assert_eq!(cfg.encryption_key.len(), 32);
+    }
+
+    // ── mask_for_log edge cases ────────────────────────────────────────────
+
+    #[test]
+    fn mask_is_stable_for_unicode() {
+        // mask takes character count, not bytes, so two chars of "\u{4e2d}\u{6587}BF" is "\u{4e2d}\u{6587}***"
+        assert_eq!(mask_for_log("\u{4e2d}\u{6587}BF", 2), "\u{4e2d}\u{6587}***");
+    }
+
+    #[test]
+    fn mask_handles_empty_input() {
+        assert_eq!(mask_for_log("", 4), "***");
+    }
 }

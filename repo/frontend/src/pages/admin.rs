@@ -7,6 +7,11 @@ use shared::dto::{
     ImportQuestionsResponse, PaginatedResponse,
 };
 
+/// Formats a list of role names into a comma-separated string.
+pub(crate) fn format_role_list(roles: &[String]) -> String {
+    roles.join(", ")
+}
+
 // ---------------------------------------------------------------------------
 // Local DTOs for question bank listing
 // ---------------------------------------------------------------------------
@@ -902,5 +907,26 @@ pub fn GenerateExamPage(locale: String) -> Element {
 
             Footer {}
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn format_role_list_empty() {
+        assert_eq!(format_role_list(&[]), "");
+    }
+
+    #[test]
+    fn format_role_list_single() {
+        assert_eq!(format_role_list(&["admin".to_string()]), "admin");
+    }
+
+    #[test]
+    fn format_role_list_multiple() {
+        let roles = vec!["admin".to_string(), "staff".to_string(), "teacher".to_string()];
+        assert_eq!(format_role_list(&roles), "admin, staff, teacher");
     }
 }

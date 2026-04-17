@@ -410,3 +410,229 @@ pub async fn get_dispatch_config(pool: &MySqlPool, key: &str) -> Option<String> 
         .await
         .ok()?
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use chrono::NaiveDate;
+
+    fn sample_dt() -> NaiveDateTime {
+        NaiveDate::from_ymd_opt(2026, 4, 15)
+            .unwrap()
+            .and_hms_opt(12, 0, 0)
+            .unwrap()
+    }
+
+    // ── StationZone ──────────────────────────────────────────────────────
+
+    #[test]
+    fn station_zone_construction_and_fields() {
+        let zone = StationZone {
+            id: 1,
+            name: "Barista Station".to_string(),
+            description: Some("Main coffee station".to_string()),
+            zone_type: "preparation".to_string(),
+            max_concurrent_tasks: 5,
+            is_active: true,
+        };
+        assert_eq!(zone.id, 1);
+        assert_eq!(zone.name, "Barista Station");
+        assert!(zone.is_active);
+        assert_eq!(zone.max_concurrent_tasks, 5);
+    }
+
+    #[test]
+    fn station_zone_serde_round_trip() {
+        let zone = StationZone {
+            id: 2,
+            name: "Pickup Counter".to_string(),
+            description: None,
+            zone_type: "pickup".to_string(),
+            max_concurrent_tasks: 10,
+            is_active: false,
+        };
+        let json = serde_json::to_string(&zone).unwrap();
+        let back: StationZone = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.id, 2);
+        assert_eq!(back.zone_type, "pickup");
+        assert!(!back.is_active);
+        assert!(back.description.is_none());
+    }
+
+    // ── ShiftWindow ──────────────────────────────────────────────────────
+
+    #[test]
+    fn shift_window_construction() {
+        let shift = ShiftWindow {
+            id: 1,
+            user_id: 42,
+            zone_id: 3,
+            shift_date: NaiveDate::from_ymd_opt(2026, 4, 15).unwrap(),
+            start_time: "08:00".to_string(),
+            end_time: "16:00".to_string(),
+        };
+        assert_eq!(shift.user_id, 42);
+        assert_eq!(shift.start_time, "08:00");
+        assert_eq!(shift.end_time, "16:00");
+    }
+
+    #[test]
+    fn shift_window_serde_round_trip() {
+        let shift = ShiftWindow {
+            id: 5,
+            user_id: 10,
+            zone_id: 2,
+            shift_date: NaiveDate::from_ymd_opt(2026, 5, 1).unwrap(),
+            start_time: "14:00".to_string(),
+            end_time: "22:00".to_string(),
+        };
+        let json = serde_json::to_string(&shift).unwrap();
+        let back: ShiftWindow = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.id, 5);
+        assert_eq!(back.shift_date, NaiveDate::from_ymd_opt(2026, 5, 1).unwrap());
+    }
+
+    // ── StaffReputation ──────────────────────────────────────────────────
+
+    #[test]
+    fn staff_reputation_construction() {
+        let rep = StaffReputation {
+            user_id: 7,
+            total_tasks_completed: 100,
+            avg_completion_time_secs: 300,
+            quality_score: 88.5,
+            reliability_score: 92.0,
+            composite_score: 90.0,
+        };
+        assert_eq!(rep.user_id, 7);
+        assert_eq!(rep.total_tasks_completed, 100);
+    }
+
+    #[test]
+    fn staff_reputation_composite_score_in_range() {
+        let rep = StaffReputation {
+            user_id: 1,
+            total_tasks_completed: 50,
+            avg_completion_time_secs: 200,
+            quality_score: 85.0,
+            reliability_score: 90.0,
+            composite_score: 87.0,
+        };
+        assert!(rep.composite_score >= 0.0 && rep.composite_score <= 100.0);
+    }
+
+    #[test]
+    fn staff_reputation_serde_round_trip() {
+        let rep = StaffReputation {
+            user_id: 3,
+            total_tasks_completed: 25,
+            avg_completion_time_secs: 180,
+            quality_score: 75.0,
+            reliability_score: 80.0,
+            composite_score: 77.5,
+        };
+        let json = serde_json::to_string(&rep).unwrap();
+        let back: StaffReputation = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.user_id, 3);
+        assert!((back.composite_score - 77.5).abs() < 1e-9);
+    }
+
+    // ── TaskAssignment ───────────────────────────────────────────────────
+
+    #[test]
+    fn task_assignment_construction() {
+        let task = TaskAssignment {
+            id: 1,
+            order_id: 100,
+            assigned_to: Some(42),
+            zone_id: Some(2),
+            dispatch_mode: "Offer".to_string(),
+            status: "Queued".to_string(),
+            priority: 5,
+            offered_at: None,
+            accepted_at: None,
+            started_at: None,
+            completed_at: None,
+            offer_expires_at: None,
+            notes: Some("rush order".to_string()),
+            created_at: sample_dt(),
+        };
+        assert_eq!(task.id, 1);
+        assert_eq!(task.order_id, 100);
+        assert_eq!(task.assigned_to, Some(42));
+        assert_eq!(task.dispatch_mode, "Offer");
+        assert_eq!(task.status, "Queued");
+    }
+
+    #[test]
+    fn task_assignment_serde_round_trip() {
+        let task = TaskAssignment {
+            id: 10,
+            order_id: 50,
+            assigned_to: None,
+            zone_id: None,
+            dispatch_mode: "Grab".to_string(),
+            status: "Completed".to_string(),
+            priority: 1,
+            offered_at: Some(sample_dt()),
+            accepted_at: Some(sample_dt()),
+            started_at: Some(sample_dt()),
+            completed_at: Some(sample_dt()),
+            offer_expires_at: None,
+            notes: None,
+            created_at: sample_dt(),
+        };
+        let json = serde_json::to_string(&task).unwrap();
+        let back: TaskAssignment = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.id, 10);
+        assert_eq!(back.dispatch_mode, "Grab");
+        assert_eq!(back.status, "Completed");
+        assert!(back.assigned_to.is_none());
+    }
+
+    #[test]
+    fn task_assignment_status_values() {
+        for status in &["Queued", "Offered", "Accepted", "InProgress", "Completed", "Rejected"] {
+            let task = TaskAssignment {
+                id: 1,
+                order_id: 1,
+                assigned_to: None,
+                zone_id: None,
+                dispatch_mode: "Offer".to_string(),
+                status: status.to_string(),
+                priority: 0,
+                offered_at: None,
+                accepted_at: None,
+                started_at: None,
+                completed_at: None,
+                offer_expires_at: None,
+                notes: None,
+                created_at: sample_dt(),
+            };
+            assert_eq!(task.status, *status);
+        }
+    }
+
+    #[test]
+    fn task_assignment_dispatch_modes() {
+        for mode in &["Offer", "Grab"] {
+            let task = TaskAssignment {
+                id: 1,
+                order_id: 1,
+                assigned_to: None,
+                zone_id: None,
+                dispatch_mode: mode.to_string(),
+                status: "Queued".to_string(),
+                priority: 0,
+                offered_at: None,
+                accepted_at: None,
+                started_at: None,
+                completed_at: None,
+                offer_expires_at: None,
+                notes: None,
+                created_at: sample_dt(),
+            };
+            assert_eq!(task.dispatch_mode, *mode);
+        }
+    }
+}

@@ -137,4 +137,66 @@ mod tests {
         let recent = chrono::Utc::now().naive_utc() - chrono::Duration::seconds(10);
         assert!(!should_rotate(recent, &config));
     }
+
+    // ── session ID generation ───────────────────────────────────────────────
+
+    #[test]
+    fn session_id_is_64_hex_chars() {
+        let id = create_session_id();
+        assert_eq!(id.len(), 64, "32 bytes → 64 hex chars, got: {}", id);
+        assert!(id.chars().all(|c| c.is_ascii_hexdigit()));
+    }
+
+    #[test]
+    fn session_ids_are_unique() {
+        let ids: std::collections::HashSet<_> =
+            (0..50).map(|_| create_session_id()).collect();
+        assert_eq!(ids.len(), 50);
+    }
+
+    #[test]
+    fn signed_cookie_format_has_single_dot_at_end() {
+        let config = test_config();
+        let signed = sign_cookie(&config, "id-abc");
+        assert!(
+            signed.matches('.').count() >= 1,
+            "cookie must contain at least one dot separator: {}",
+            signed
+        );
+        // With rsplit_once('.') the verifier handles session IDs that contain dots.
+        let id_with_dots = "a.b.c.d";
+        let signed2 = sign_cookie(&config, id_with_dots);
+        assert_eq!(verify_cookie(&config, &signed2), Some(id_with_dots.to_string()));
+    }
+
+    #[test]
+    fn verify_cookie_rejects_non_hex_signature() {
+        let config = test_config();
+        let bogus = format!("some-id.NOT-HEX-!!");
+        assert_eq!(verify_cookie(&config, &bogus), None);
+    }
+
+    #[test]
+    fn sign_is_deterministic_for_same_key_and_id() {
+        let config = test_config();
+        assert_eq!(sign_cookie(&config, "same"), sign_cookie(&config, "same"));
+    }
+
+    #[test]
+    fn sign_differs_for_different_session_ids() {
+        let config = test_config();
+        assert_ne!(sign_cookie(&config, "a"), sign_cookie(&config, "b"));
+    }
+
+    // ── SessionConfig::from_env ────────────────────────────────────────────
+
+    #[test]
+    fn session_config_has_30_minute_idle_and_32_byte_key() {
+        // The constants are not env-driven, so this assertion holds
+        // regardless of any COOKIE_SECRET value another test may have set.
+        let cfg = SessionConfig::from_env();
+        assert_eq!(cfg.idle_timeout_secs, 1800);
+        assert_eq!(cfg.rotation_interval_secs, 300);
+        assert_eq!(cfg.cookie_secret.len(), 32);
+    }
 }

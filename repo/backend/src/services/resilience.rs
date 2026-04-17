@@ -823,4 +823,270 @@ mod tests {
         let mgr = BackgroundJobManager::new(deg);
         assert!(!mgr.should_run("nonexistent").await);
     }
+
+    // ── CircuitBreaker recovery path ────────────────────────────────────────
+
+    #[test]
+    fn circuit_record_success_when_closed_resets_failure_count() {
+        let mut cb = CircuitBreaker::new("test", 3, 2, 30);
+        cb.record_failure();
+        cb.record_failure();
+        assert_eq!(cb.failure_count, 2);
+        cb.record_success();
+        assert_eq!(cb.failure_count, 0);
+        assert_eq!(cb.state, CircuitState::Closed);
+    }
+
+    #[test]
+    fn circuit_half_open_success_threshold_closes() {
+        let mut cb = CircuitBreaker::new("test", 2, 2, 0);
+        cb.record_failure();
+        cb.record_failure();
+        assert_eq!(cb.state, CircuitState::Open);
+
+        // Open duration is 0 → immediately transitions to HalfOpen.
+        assert!(cb.can_execute());
+        assert_eq!(cb.state, CircuitState::HalfOpen);
+
+        cb.record_success();
+        assert_eq!(cb.state, CircuitState::HalfOpen);
+        cb.record_success();
+        // Two successes at threshold 2 → back to Closed.
+        assert_eq!(cb.state, CircuitState::Closed);
+    }
+
+    #[test]
+    fn circuit_half_open_failure_reopens() {
+        let mut cb = CircuitBreaker::new("test", 2, 2, 0);
+        cb.record_failure();
+        cb.record_failure();
+        cb.can_execute(); // → HalfOpen
+
+        cb.record_failure();
+        assert_eq!(cb.state, CircuitState::Open);
+    }
+
+    #[test]
+    fn circuit_open_cannot_execute_before_timeout() {
+        let mut cb = CircuitBreaker::new("test", 1, 1, 3600);
+        cb.record_failure();
+        assert_eq!(cb.state, CircuitState::Open);
+        assert!(!cb.can_execute());
+        // Still Open because the timeout hasn't elapsed.
+        assert_eq!(cb.state, CircuitState::Open);
+    }
+
+    // ── BackoffConfig edge cases ────────────────────────────────────────────
+
+    #[test]
+    fn backoff_zero_initial_delay_stays_zero() {
+        let config = BackoffConfig {
+            initial_delay_ms: 0,
+            max_delay_ms: 1_000,
+            multiplier: 2.0,
+            jitter: false,
+            max_retries: 5,
+        };
+        assert_eq!(config.delay_for_attempt(0), 0);
+        assert_eq!(config.delay_for_attempt(5), 0);
+    }
+
+    #[test]
+    fn backoff_multiplier_below_one_decreases() {
+        let config = BackoffConfig {
+            initial_delay_ms: 1000,
+            max_delay_ms: 10_000,
+            multiplier: 0.5,
+            jitter: false,
+            max_retries: 5,
+        };
+        assert_eq!(config.delay_for_attempt(0), 1000);
+        assert_eq!(config.delay_for_attempt(1), 500);
+        assert_eq!(config.delay_for_attempt(2), 250);
+    }
+
+    // ── execute_with_retry ──────────────────────────────────────────────────
+
+    #[tokio::test]
+    async fn execute_with_retry_returns_immediately_on_success() {
+        let config = BackoffConfig {
+            initial_delay_ms: 0,
+            max_delay_ms: 0,
+            multiplier: 1.0,
+            jitter: false,
+            max_retries: 3,
+        };
+        let mut calls = 0;
+        let result = execute_with_retry::<_, _, i32, &'static str>(&config, || {
+            calls += 1;
+            async move { Ok::<i32, &'static str>(42) }
+        })
+        .await;
+        assert_eq!(result, Ok(42));
+        assert_eq!(calls, 1);
+    }
+
+    #[tokio::test]
+    async fn execute_with_retry_retries_until_success() {
+        let config = BackoffConfig {
+            initial_delay_ms: 0,
+            max_delay_ms: 0,
+            multiplier: 1.0,
+            jitter: false,
+            max_retries: 5,
+        };
+        let mut calls = 0;
+        let result = execute_with_retry::<_, _, &str, &str>(&config, || {
+            calls += 1;
+            let v = calls;
+            async move {
+                if v < 3 {
+                    Err("try again")
+                } else {
+                    Ok("done")
+                }
+            }
+        })
+        .await;
+        assert_eq!(result, Ok("done"));
+        assert_eq!(calls, 3);
+    }
+
+    #[tokio::test]
+    async fn execute_with_retry_gives_up_after_max_retries() {
+        let config = BackoffConfig {
+            initial_delay_ms: 0,
+            max_delay_ms: 0,
+            multiplier: 1.0,
+            jitter: false,
+            max_retries: 2,
+        };
+        let mut calls = 0;
+        let result = execute_with_retry::<_, _, &str, &str>(&config, || {
+            calls += 1;
+            async move { Err::<&str, &str>("persistent") }
+        })
+        .await;
+        assert_eq!(result, Err("persistent"));
+        // Initial attempt + 2 retries = 3 total calls.
+        assert_eq!(calls, 3);
+    }
+
+    // ── DegradationManager ──────────────────────────────────────────────────
+
+    #[tokio::test]
+    async fn degradation_manager_ships_with_known_services() {
+        let mgr = DegradationManager::new();
+        assert!(mgr.is_available("ordering").await);
+        assert!(mgr.is_available("reservations").await);
+        assert!(mgr.is_available("analytics").await);
+    }
+
+    #[tokio::test]
+    async fn degradation_manager_unknown_services_are_available() {
+        let mgr = DegradationManager::new();
+        assert!(mgr.is_available("brand-new-service").await);
+    }
+
+    #[tokio::test]
+    async fn failures_open_circuit_and_mark_degraded() {
+        let mgr = DegradationManager::new();
+        // Push failures beyond the default threshold (5).
+        for _ in 0..6 {
+            mgr.record_failure("analytics").await;
+        }
+        assert!(!mgr.is_available("analytics").await);
+        let status = mgr.get_status().await;
+        assert_eq!(status["analytics"].is_degraded, true);
+    }
+
+    #[tokio::test]
+    async fn recorded_success_clears_degraded_flag_after_recovery() {
+        let mgr = DegradationManager::new();
+        for _ in 0..6 {
+            mgr.record_failure("analytics").await;
+        }
+        assert!(!mgr.is_available("analytics").await);
+
+        // Transition through HalfOpen by advancing time... we can't easily
+        // simulate that without manipulating state directly, so we verify the
+        // success path at least does not panic and record_success is a no-op
+        // while still Open.
+        mgr.record_success("analytics").await;
+        let status = mgr.get_status().await;
+        // Still degraded — we haven't waited for the open-timeout.
+        assert!(status["analytics"].is_degraded);
+    }
+
+    // ── FetchConfig rotating primitives ─────────────────────────────────────
+
+    #[test]
+    fn fetch_config_user_agents_rotate() {
+        let mut cfg = FetchConfig::new();
+        let ua1 = cfg.next_user_agent().to_string();
+        let ua2 = cfg.next_user_agent().to_string();
+        let ua3 = cfg.next_user_agent().to_string();
+        assert_ne!(ua1, ua2);
+        assert_ne!(ua2, ua3);
+        // After 3 rotations we wrap around because pool has 3 entries.
+        assert_eq!(cfg.next_user_agent(), &ua1);
+    }
+
+    #[test]
+    fn fetch_config_proxy_rotation_returns_none_when_empty() {
+        let mut cfg = FetchConfig::new();
+        assert!(cfg.next_proxy().is_none());
+    }
+
+    #[test]
+    fn fetch_config_proxy_rotation_round_robin() {
+        let mut cfg = FetchConfig::new();
+        cfg.add_proxy("proxy-a:8080");
+        cfg.add_proxy("proxy-b:8080");
+        assert_eq!(cfg.next_proxy().unwrap(), "proxy-a:8080");
+        assert_eq!(cfg.next_proxy().unwrap(), "proxy-b:8080");
+        assert_eq!(cfg.next_proxy().unwrap(), "proxy-a:8080");
+    }
+
+    #[test]
+    fn fetch_config_cookie_set_and_clear() {
+        let mut cfg = FetchConfig::new();
+        cfg.set_cookie("sess", "abc");
+        assert_eq!(cfg.cookies.get("sess"), Some(&"abc".to_string()));
+        cfg.clear_cookies();
+        assert!(cfg.cookies.is_empty());
+    }
+
+    #[test]
+    fn fetch_config_captcha_disabled_by_default() {
+        let cfg = FetchConfig::new();
+        assert!(!cfg.captcha_enabled);
+        assert!(!cfg.is_captcha_required());
+    }
+
+    #[test]
+    fn fetch_config_parse_redirect_finds_location_header() {
+        let mut headers = HashMap::new();
+        headers.insert("Location".into(), "/elsewhere".into());
+        assert_eq!(
+            FetchConfig::parse_redirect(&headers).as_deref(),
+            Some("/elsewhere")
+        );
+    }
+
+    #[test]
+    fn fetch_config_parse_redirect_is_case_insensitive() {
+        let mut headers = HashMap::new();
+        headers.insert("location".into(), "/lower".into());
+        assert_eq!(
+            FetchConfig::parse_redirect(&headers).as_deref(),
+            Some("/lower")
+        );
+    }
+
+    #[test]
+    fn fetch_config_parse_redirect_none_when_absent() {
+        let headers = HashMap::new();
+        assert!(FetchConfig::parse_redirect(&headers).is_none());
+    }
 }

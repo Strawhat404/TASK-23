@@ -249,3 +249,153 @@ pub async fn option_value_belongs_to_spu(pool: &MySqlPool, option_value_id: i64,
     .unwrap_or(0)
         > 0
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use chrono::NaiveDate;
+
+    fn sample_dt() -> chrono::NaiveDateTime {
+        NaiveDate::from_ymd_opt(2026, 4, 15)
+            .unwrap()
+            .and_hms_opt(12, 0, 0)
+            .unwrap()
+    }
+
+    #[test]
+    fn spu_construction() {
+        let s = Spu {
+            id: 1,
+            name_en: "Latte".to_string(),
+            name_zh: "\u{62ff}\u{94c1}".to_string(),
+            description_en: Some("A classic latte".to_string()),
+            description_zh: None,
+            category: Some("coffee".to_string()),
+            image_url: None,
+            base_price: 4.50,
+            prep_time_minutes: 5,
+            is_active: true,
+            created_at: sample_dt(),
+            updated_at: None,
+        };
+        assert_eq!(s.id, 1);
+        assert_eq!(s.name_en, "Latte");
+        assert!(s.is_active);
+    }
+
+    #[test]
+    fn spu_serde_round_trip() {
+        let s = Spu {
+            id: 2,
+            name_en: "Espresso".to_string(),
+            name_zh: "\u{6d53}\u{7f29}\u{5496}\u{5561}".to_string(),
+            description_en: None,
+            description_zh: None,
+            category: None,
+            image_url: None,
+            base_price: 3.00,
+            prep_time_minutes: 3,
+            is_active: true,
+            created_at: sample_dt(),
+            updated_at: None,
+        };
+        let json = serde_json::to_string(&s).unwrap();
+        let back: Spu = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.id, 2);
+        assert!((back.base_price - 3.00).abs() < 1e-9);
+    }
+
+    #[test]
+    fn option_group_construction() {
+        let g = OptionGroup {
+            id: 1,
+            spu_id: 10,
+            name_en: "Size".to_string(),
+            name_zh: "\u{5c3a}\u{5bf8}".to_string(),
+            is_required: true,
+            sort_order: 0,
+        };
+        assert_eq!(g.spu_id, 10);
+        assert!(g.is_required);
+    }
+
+    #[test]
+    fn option_group_serde_round_trip() {
+        let g = OptionGroup {
+            id: 5,
+            spu_id: 2,
+            name_en: "Milk".to_string(),
+            name_zh: "\u{725b}\u{5976}".to_string(),
+            is_required: false,
+            sort_order: 1,
+        };
+        let json = serde_json::to_string(&g).unwrap();
+        let back: OptionGroup = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.id, 5);
+        assert!(!back.is_required);
+    }
+
+    #[test]
+    fn option_value_construction_with_price_delta() {
+        let v = OptionValue {
+            id: 1,
+            group_id: 3,
+            label_en: "Oat Milk".to_string(),
+            label_zh: "\u{71d5}\u{9ea6}\u{5976}".to_string(),
+            price_delta: 0.75,
+            is_default: false,
+            sort_order: 2,
+        };
+        assert!((v.price_delta - 0.75).abs() < 1e-9);
+        assert!(!v.is_default);
+    }
+
+    #[test]
+    fn option_value_serde_round_trip() {
+        let v = OptionValue {
+            id: 10,
+            group_id: 1,
+            label_en: "Large".to_string(),
+            label_zh: "\u{5927}".to_string(),
+            price_delta: 1.50,
+            is_default: false,
+            sort_order: 2,
+        };
+        let json = serde_json::to_string(&v).unwrap();
+        let back: OptionValue = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.id, 10);
+        assert!((back.price_delta - 1.50).abs() < 1e-9);
+    }
+
+    #[test]
+    fn sku_construction() {
+        let s = Sku {
+            id: 1,
+            spu_id: 5,
+            sku_code: "SKU-LATTE-SM".to_string(),
+            price: 4.50,
+            stock_quantity: 100,
+            is_active: true,
+        };
+        assert_eq!(s.sku_code, "SKU-LATTE-SM");
+        assert_eq!(s.stock_quantity, 100);
+        assert!(s.is_active);
+    }
+
+    #[test]
+    fn sku_serde_round_trip() {
+        let s = Sku {
+            id: 20,
+            spu_id: 3,
+            sku_code: "SKU-ESP-001".to_string(),
+            price: 3.00,
+            stock_quantity: 50,
+            is_active: false,
+        };
+        let json = serde_json::to_string(&s).unwrap();
+        let back: Sku = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.id, 20);
+        assert_eq!(back.sku_code, "SKU-ESP-001");
+        assert!(!back.is_active);
+    }
+}

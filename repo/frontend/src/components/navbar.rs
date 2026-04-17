@@ -4,6 +4,30 @@ use super::locale_switcher::LocaleSwitcher;
 
 const NAV_LINK: &str = "text-white/85 no-underline px-3 py-2 rounded-lg text-sm transition-colors hover:bg-white/15 hover:text-white";
 
+/// Returns the list of nav link names visible to a user based on their roles.
+pub(crate) fn visible_links(is_staff: bool, is_teacher: bool, is_admin: bool) -> Vec<&'static str> {
+    let mut links = vec!["Menu", "Cart", "Orders"];
+    if is_staff {
+        links.push("Staff");
+    }
+    if is_teacher {
+        links.push("Training");
+    }
+    if is_admin {
+        links.push("Admin");
+    }
+    links
+}
+
+/// Returns the badge text for the cart icon, or None if count is zero.
+pub(crate) fn cart_badge_text(count: i32) -> Option<String> {
+    if count > 0 {
+        Some(count.to_string())
+    } else {
+        None
+    }
+}
+
 #[component]
 pub fn Navbar(locale: String) -> Element {
     let mut state = use_context::<Signal<AppState>>();
@@ -81,5 +105,42 @@ pub fn Navbar(locale: String) -> Element {
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn customer_sees_base_links() {
+        let links = visible_links(false, false, false);
+        assert_eq!(links, vec!["Menu", "Cart", "Orders"]);
+    }
+
+    #[test]
+    fn staff_sees_staff_link() {
+        let links = visible_links(true, false, false);
+        assert!(links.contains(&"Staff"));
+        assert!(!links.contains(&"Admin"));
+    }
+
+    #[test]
+    fn admin_sees_all_links() {
+        let links = visible_links(true, true, true);
+        assert!(links.contains(&"Menu"));
+        assert!(links.contains(&"Staff"));
+        assert!(links.contains(&"Training"));
+        assert!(links.contains(&"Admin"));
+    }
+
+    #[test]
+    fn cart_badge_shown_when_positive() {
+        assert_eq!(cart_badge_text(3), Some("3".to_string()));
+    }
+
+    #[test]
+    fn cart_badge_hidden_when_zero() {
+        assert_eq!(cart_badge_text(0), None);
     }
 }

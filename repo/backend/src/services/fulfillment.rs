@@ -149,4 +149,63 @@ mod tests {
         let msg = reason.unwrap();
         assert!(msg.contains('1') && msg.contains('2'));
     }
+
+    // ── full state-machine matrix ──────────────────────────────────────────
+
+    #[test]
+    fn all_backward_transitions_rejected() {
+        // No status can rewind to an earlier one.
+        let pairs = &[
+            ("Accepted", "Pending"),
+            ("InPrep", "Accepted"),
+            ("Ready", "InPrep"),
+            ("PickedUp", "Ready"),
+        ];
+        for (from, to) in pairs {
+            assert!(
+                !validate_transition(from, to, &roles(&["Admin"])),
+                "{}→{} must be forbidden",
+                from,
+                to
+            );
+        }
+    }
+
+    #[test]
+    fn unknown_status_is_rejected() {
+        assert!(!validate_transition("Floating", "Pending", &roles(&[])));
+        assert!(!validate_transition("Pending", "UnknownStatus", &roles(&[])));
+    }
+
+    #[test]
+    fn admin_plus_other_role_can_cancel_ready() {
+        // Admin among other roles still permits Ready→Canceled.
+        assert!(validate_transition(
+            "Ready",
+            "Canceled",
+            &roles(&["Customer", "Admin"])
+        ));
+    }
+
+    #[test]
+    fn staff_alone_cannot_cancel_ready() {
+        assert!(!validate_transition("Ready", "Canceled", &roles(&["Staff"])));
+    }
+
+    #[test]
+    fn cancel_error_mentions_admin_requirement_only_when_ready() {
+        // Pending→Canceled is allowed, so the message code-path is for
+        // "invalid" only; ensure we still produce a useful string.
+        let msg = cancel_error_message("Pending", &roles(&["Staff"]));
+        assert!(msg.contains("Pending"));
+    }
+
+    #[test]
+    fn check_voucher_match_zero_ids_match() {
+        // Edge case: 0 == 0 still matches. Not a realistic scenario but the
+        // function is agnostic to value.
+        let (ok, reason) = check_voucher_match(0, 0);
+        assert!(ok);
+        assert!(reason.is_none());
+    }
 }

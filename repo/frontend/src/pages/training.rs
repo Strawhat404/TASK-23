@@ -8,6 +8,36 @@ use shared::dto::{
     SubmitAnswerResponse, WrongAnswerReviewSession,
 };
 
+/// Returns a letter grade based on a score percentage (0-100).
+pub(crate) fn score_grade(score: f64) -> &'static str {
+    if score >= 90.0 {
+        "A"
+    } else if score >= 80.0 {
+        "B"
+    } else if score >= 70.0 {
+        "C"
+    } else if score >= 60.0 {
+        "D"
+    } else {
+        "F"
+    }
+}
+
+/// Formats a duration in minutes as "Xh Ym" or just "Ym" if under 60 minutes.
+pub(crate) fn format_duration(minutes: i32) -> String {
+    if minutes >= 60 {
+        let h = minutes / 60;
+        let m = minutes % 60;
+        if m == 0 {
+            format!("{}h", h)
+        } else {
+            format!("{}h {}m", h, m)
+        }
+    } else {
+        format!("{}m", minutes)
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Favorite question DTO (matches ExamQuestionDetail returned by the backend)
 // ---------------------------------------------------------------------------
@@ -1111,5 +1141,56 @@ pub fn ReviewSessionPage(locale: String) -> Element {
 
             Footer {}
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn score_grade_a() {
+        assert_eq!(score_grade(95.0), "A");
+        assert_eq!(score_grade(90.0), "A");
+    }
+
+    #[test]
+    fn score_grade_b() {
+        assert_eq!(score_grade(85.0), "B");
+        assert_eq!(score_grade(80.0), "B");
+    }
+
+    #[test]
+    fn score_grade_c() {
+        assert_eq!(score_grade(75.0), "C");
+    }
+
+    #[test]
+    fn score_grade_d() {
+        assert_eq!(score_grade(65.0), "D");
+    }
+
+    #[test]
+    fn score_grade_f() {
+        assert_eq!(score_grade(59.9), "F");
+        assert_eq!(score_grade(0.0), "F");
+    }
+
+    #[test]
+    fn format_duration_minutes_only() {
+        assert_eq!(format_duration(45), "45m");
+        assert_eq!(format_duration(5), "5m");
+    }
+
+    #[test]
+    fn format_duration_hours_and_minutes() {
+        assert_eq!(format_duration(90), "1h 30m");
+        assert_eq!(format_duration(125), "2h 5m");
+    }
+
+    #[test]
+    fn format_duration_exact_hours() {
+        assert_eq!(format_duration(60), "1h");
+        assert_eq!(format_duration(120), "2h");
     }
 }

@@ -407,3 +407,99 @@ pub async fn release_expired(
     }
     released
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ── lock_key_for_sku_options ────────────────────────────────────────────
+
+    #[test]
+    fn lock_key_is_deterministic_regardless_of_order() {
+        let a = lock_key_for_sku_options(42, &[3, 1, 2]);
+        let b = lock_key_for_sku_options(42, &[1, 2, 3]);
+        let c = lock_key_for_sku_options(42, &[2, 3, 1]);
+        assert_eq!(a, b);
+        assert_eq!(b, c);
+        assert_eq!(a, "sku:42:opts:1,2,3");
+    }
+
+    #[test]
+    fn lock_key_different_skus_differ() {
+        let a = lock_key_for_sku_options(1, &[1, 2]);
+        let b = lock_key_for_sku_options(2, &[1, 2]);
+        assert_ne!(a, b);
+    }
+
+    #[test]
+    fn lock_key_different_options_differ() {
+        let a = lock_key_for_sku_options(1, &[1, 2]);
+        let b = lock_key_for_sku_options(1, &[1, 3]);
+        assert_ne!(a, b);
+    }
+
+    #[test]
+    fn lock_key_empty_options() {
+        assert_eq!(lock_key_for_sku_options(7, &[]), "sku:7:opts:");
+    }
+
+    #[test]
+    fn lock_key_single_option() {
+        assert_eq!(lock_key_for_sku_options(9, &[5]), "sku:9:opts:5");
+    }
+
+    // ── LockError Display ───────────────────────────────────────────────────
+
+    #[test]
+    fn lock_error_display_formats_holder_and_expires() {
+        let e = LockError::AlreadyLocked {
+            holder_id: 77,
+            expires_at: "2026-01-01T00:00:00".into(),
+        };
+        let s = format!("{}", e);
+        assert!(s.contains("77"));
+        assert!(s.contains("2026-01-01"));
+    }
+
+    #[test]
+    fn lock_error_display_stock_exhausted() {
+        let s = format!("{}", LockError::StockExhausted);
+        assert!(s.to_lowercase().contains("stock"));
+    }
+
+    #[test]
+    fn lock_error_display_db_error_includes_message() {
+        let s = format!("{}", LockError::DatabaseError("connection refused".into()));
+        assert!(s.contains("connection refused"));
+    }
+
+    // ── ReservationLockManager ──────────────────────────────────────────────
+
+    #[tokio::test]
+    async fn manager_starts_empty() {
+        let mgr = ReservationLockManager::new();
+        let inner = mgr.inner.lock().await;
+        assert!(inner.is_empty());
+    }
+
+    #[tokio::test]
+    async fn manager_is_clonable_and_shares_state() {
+        let mgr = ReservationLockManager::new();
+        let clone = mgr.clone();
+        // Inserting into the original map should be visible through the clone.
+        {
+            let mut m = mgr.inner.lock().await;
+            m.insert(
+                "k".into(),
+                LockEntry {
+                    lock_key: "k".into(),
+                    user_id: 1,
+                    expires_at: chrono::Utc::now().naive_utc(),
+                    reservation_id: None,
+                },
+            );
+        }
+        let cloned = clone.inner.lock().await;
+        assert!(cloned.contains_key("k"));
+    }
+}

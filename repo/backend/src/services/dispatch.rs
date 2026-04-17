@@ -291,3 +291,59 @@ pub async fn complete_and_score(pool: &MySqlPool, task_id: i64) -> Result<(), Di
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn dispatch_error_display_task_not_found() {
+        assert_eq!(format!("{}", DispatchError::TaskNotFound), "Task not found");
+    }
+
+    #[test]
+    fn dispatch_error_display_already_assigned() {
+        assert_eq!(
+            format!("{}", DispatchError::AlreadyAssigned),
+            "Task already assigned"
+        );
+    }
+
+    #[test]
+    fn dispatch_error_display_max_workload() {
+        assert!(format!("{}", DispatchError::MaxWorkloadReached).contains("max concurrent"));
+    }
+
+    #[test]
+    fn dispatch_error_display_no_eligible_staff() {
+        assert!(format!("{}", DispatchError::NoEligibleStaff).contains("No eligible"));
+    }
+
+    #[test]
+    fn dispatch_error_display_invalid_state_includes_reason() {
+        let e = DispatchError::InvalidState("Queued".into());
+        assert!(format!("{}", e).contains("Queued"));
+    }
+
+    #[test]
+    fn dispatch_error_display_db_error_includes_reason() {
+        let e = DispatchError::DatabaseError("timeout".into());
+        assert!(format!("{}", e).contains("timeout"));
+    }
+
+    #[test]
+    fn staff_score_serializes_all_fields() {
+        let score = StaffScore {
+            user_id: 7,
+            zone_match: 1.0,
+            shift_match: 0.75,
+            workload_score: 0.5,
+            reputation_score: 0.9,
+            total_score: 0.82,
+        };
+        let json = serde_json::to_value(&score).unwrap();
+        assert_eq!(json["user_id"], 7);
+        assert!(json["zone_match"].is_number());
+        assert!(json["total_score"].is_number());
+    }
+}

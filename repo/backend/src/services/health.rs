@@ -102,3 +102,71 @@ pub async fn full_health_check(
         background_jobs: jobs,
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn component_health_serializes_status_only_when_unhealthy() {
+        let healthy = ComponentHealth {
+            status: "healthy".into(),
+            latency_ms: Some(12),
+            details: None,
+        };
+        let json = serde_json::to_value(&healthy).unwrap();
+        assert_eq!(json["status"], "healthy");
+        assert_eq!(json["latency_ms"], 12);
+        assert!(json["details"].is_null());
+    }
+
+    #[test]
+    fn job_status_serializes_with_optional_fields() {
+        let js = JobStatus {
+            name: "session_cleanup".into(),
+            last_run: Some("2026-04-15T10:00:00".into()),
+            next_run: None,
+            is_enabled: true,
+            last_error: Some("timeout".into()),
+        };
+        let json = serde_json::to_value(&js).unwrap();
+        assert_eq!(json["name"], "session_cleanup");
+        assert_eq!(json["is_enabled"], true);
+        assert_eq!(json["last_error"], "timeout");
+        assert!(json["next_run"].is_null());
+    }
+
+    #[test]
+    fn service_health_report_marks_critical_degraded() {
+        let r = ServiceHealthReport {
+            name: "reservations".into(),
+            status: "degraded".into(),
+            is_critical: true,
+            is_degraded: true,
+            circuit_state: "open".into(),
+        };
+        assert!(r.is_critical && r.is_degraded);
+    }
+
+    #[test]
+    fn health_report_shape_serializes() {
+        let report = HealthReport {
+            status: "healthy".into(),
+            timestamp: "2026-04-15T10:00:00".into(),
+            uptime_secs: 3600,
+            database: ComponentHealth {
+                status: "healthy".into(),
+                latency_ms: Some(5),
+                details: None,
+            },
+            services: Vec::new(),
+            background_jobs: Vec::new(),
+        };
+        let json = serde_json::to_value(&report).unwrap();
+        assert_eq!(json["status"], "healthy");
+        assert_eq!(json["uptime_secs"], 3600);
+        assert_eq!(json["database"]["status"], "healthy");
+        assert!(json["services"].is_array());
+        assert!(json["background_jobs"].is_array());
+    }
+}

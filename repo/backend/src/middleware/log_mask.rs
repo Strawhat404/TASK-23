@@ -153,4 +153,67 @@ mod tests {
         // User fields not masked
         assert_eq!(v["data"]["user"]["username"], "alice");
     }
+
+    // ── extra coverage ─────────────────────────────────────────────────────
+
+    #[test]
+    fn masks_token_and_session_id_fields() {
+        let mut v = json!({"token": "abc123", "session_id": "sid-42"});
+        mask_json_fields(&mut v, SENSITIVE_FIELDS);
+        assert!(masked_string(&v["token"]).is_some());
+        assert!(masked_string(&v["session_id"]).is_some());
+    }
+
+    #[test]
+    fn fairing_info_reports_response_kind() {
+        let f = LogMaskFairing;
+        let info = f.info();
+        assert_eq!(info.name, "Log Mask Fairing");
+        // Kind is a bitflag-style set in Rocket; verify Response is present
+        // via the bitwise AND rather than assuming a specific helper name.
+        let response_only = rocket::fairing::Kind::Response;
+        assert!(
+            (info.kind & response_only) == response_only,
+            "fairing must declare Response kind"
+        );
+    }
+
+    #[test]
+    fn empty_object_is_unchanged() {
+        let mut v = json!({});
+        let before = v.clone();
+        mask_json_fields(&mut v, SENSITIVE_FIELDS);
+        assert_eq!(v, before);
+    }
+
+    #[test]
+    fn deeply_nested_list_of_lists_is_masked() {
+        let mut v = json!({
+            "batches": [
+                {"items": [{"password": "p1"}, {"password": "p2"}]},
+                {"items": [{"token": "t"}]}
+            ]
+        });
+        mask_json_fields(&mut v, SENSITIVE_FIELDS);
+        assert!(masked_string(&v["batches"][0]["items"][0]["password"]).is_some());
+        assert!(masked_string(&v["batches"][0]["items"][1]["password"]).is_some());
+        assert!(masked_string(&v["batches"][1]["items"][0]["token"]).is_some());
+    }
+
+    #[test]
+    fn non_string_sensitive_values_are_replaced_with_string() {
+        // Even if a password lands as a number in some bogus payload, it is
+        // still replaced with a masked placeholder.
+        let mut v = json!({"password": 12345});
+        mask_json_fields(&mut v, SENSITIVE_FIELDS);
+        assert!(masked_string(&v["password"]).is_some());
+    }
+
+    #[test]
+    fn empty_sensitive_list_leaves_body_untouched() {
+        let mut v = json!({"password": "p", "other": "x"});
+        let before = v.clone();
+        mask_json_fields(&mut v, &[]);
+        assert_eq!(v, before);
+    }
 }

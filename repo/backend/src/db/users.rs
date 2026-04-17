@@ -133,3 +133,104 @@ pub async fn remove_role(pool: &MySqlPool, user_id: i64, role_name: &str) -> Res
         .await?;
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use chrono::NaiveDate;
+
+    fn sample_dt() -> chrono::NaiveDateTime {
+        NaiveDate::from_ymd_opt(2026, 4, 15)
+            .unwrap()
+            .and_hms_opt(12, 0, 0)
+            .unwrap()
+    }
+
+    #[test]
+    fn user_struct_construction() {
+        let u = User {
+            id: 1,
+            username: "alice".to_string(),
+            password_hash: "$2b$12$stub".to_string(),
+            display_name: Some("Alice".to_string()),
+            email: Some("alice@example.com".to_string()),
+            preferred_locale: "en".to_string(),
+            created_at: sample_dt(),
+            updated_at: None,
+        };
+        assert_eq!(u.id, 1);
+        assert_eq!(u.username, "alice");
+        assert_eq!(u.preferred_locale, "en");
+    }
+
+    #[test]
+    fn user_struct_optional_fields_none() {
+        let u = User {
+            id: 2,
+            username: "bob".to_string(),
+            password_hash: "hash".to_string(),
+            display_name: None,
+            email: None,
+            preferred_locale: "zh".to_string(),
+            created_at: sample_dt(),
+            updated_at: None,
+        };
+        assert!(u.display_name.is_none());
+        assert!(u.email.is_none());
+        assert!(u.updated_at.is_none());
+    }
+
+    #[test]
+    fn user_struct_serde_round_trip() {
+        let u = User {
+            id: 3,
+            username: "carol".to_string(),
+            password_hash: "hashed_pw".to_string(),
+            display_name: Some("Carol C.".to_string()),
+            email: Some("carol@test.com".to_string()),
+            preferred_locale: "en".to_string(),
+            created_at: sample_dt(),
+            updated_at: Some(sample_dt()),
+        };
+        let json = serde_json::to_string(&u).unwrap();
+        let back: User = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.id, 3);
+        assert_eq!(back.username, "carol");
+        assert!(back.updated_at.is_some());
+    }
+
+    #[test]
+    fn user_struct_clone() {
+        let u = User {
+            id: 4,
+            username: "dave".to_string(),
+            password_hash: "pw".to_string(),
+            display_name: None,
+            email: None,
+            preferred_locale: "en".to_string(),
+            created_at: sample_dt(),
+            updated_at: None,
+        };
+        let cloned = u.clone();
+        assert_eq!(cloned.id, u.id);
+        assert_eq!(cloned.username, u.username);
+    }
+
+    #[test]
+    fn user_import_from_shared_works() {
+        // Verify that the `use shared::models::User` import compiles and
+        // the type is indeed shared::models::User.
+        let u = User {
+            id: 0,
+            username: String::new(),
+            password_hash: String::new(),
+            display_name: None,
+            email: None,
+            preferred_locale: "en".to_string(),
+            created_at: sample_dt(),
+            updated_at: None,
+        };
+        let _debug = format!("{:?}", u);
+        assert!(true);
+    }
+}

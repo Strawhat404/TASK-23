@@ -97,4 +97,55 @@ mod tests {
         let bd = compute_breakdown(&items, 0.06);
         assert!((bd.total - (bd.subtotal + bd.tax_amount)).abs() < 0.01);
     }
+
+    // ── additional coverage ───────────────────────────────────────────────
+
+    #[test]
+    fn test_calculate_item_price_with_negative_discount_option() {
+        // A "no sweetness" option might carry a -0.25 discount.
+        assert_eq!(calculate_item_price(5.00, &[-0.25]), 4.75);
+    }
+
+    #[test]
+    fn test_calculate_subtotal_zero_quantity_yields_zero_line() {
+        let items = [(9.99, 0), (5.0, 2)];
+        assert_eq!(calculate_subtotal(&items), 10.0);
+    }
+
+    #[test]
+    fn test_calculate_tax_zero_rate_is_zero() {
+        assert_eq!(calculate_tax(100.0, 0.0), 0.0);
+    }
+
+    #[test]
+    fn test_calculate_tax_rounds_half_up_pattern() {
+        // 1.25 * 0.0625 = 0.078125 → rounds to 0.08
+        assert_eq!(calculate_tax(1.25, 0.0625), 0.08);
+    }
+
+    #[test]
+    fn test_compute_breakdown_empty_cart() {
+        let bd = compute_breakdown(&[], 0.08);
+        assert_eq!(bd.subtotal, 0.0);
+        assert_eq!(bd.tax_amount, 0.0);
+        assert_eq!(bd.total, 0.0);
+    }
+
+    #[test]
+    fn test_compute_breakdown_high_value_stays_consistent() {
+        let items = [(99.99, 10)];
+        let bd = compute_breakdown(&items, 0.10);
+        assert!((bd.subtotal - 999.9).abs() < 1e-9);
+        assert!((bd.tax_amount - 99.99).abs() < 0.01);
+        assert!((bd.total - (bd.subtotal + bd.tax_amount)).abs() < 0.02);
+    }
+
+    #[test]
+    fn test_price_breakdown_serializes_round_trip() {
+        let bd = compute_breakdown(&[(4.50, 2)], 0.10);
+        let json = serde_json::to_string(&bd).unwrap();
+        let parsed: PriceBreakdown = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed.subtotal, bd.subtotal);
+        assert_eq!(parsed.total, bd.total);
+    }
 }

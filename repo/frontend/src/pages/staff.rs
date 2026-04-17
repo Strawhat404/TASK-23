@@ -9,6 +9,17 @@ use shared::dto::{
     UpdateOrderStatusRequest,
 };
 
+/// Returns a human-readable label for the next action button given the current order status.
+pub(crate) fn status_action_label(current: &str) -> &'static str {
+    match current {
+        "Pending" => "Accept",
+        "Accepted" => "Start Prep",
+        "InPrep" => "Mark Ready",
+        "Ready" => "Mark Picked Up",
+        _ => "No Action",
+    }
+}
+
 const INPUT: &str = "w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm transition-colors focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 bg-white";
 const BTN_PRIMARY: &str = "inline-flex items-center justify-center px-5 py-2.5 rounded-lg text-sm font-medium bg-primary text-white hover:bg-primary-dark transition-all disabled:opacity-50 disabled:cursor-not-allowed no-underline";
 const BTN_DANGER: &str = "inline-flex items-center justify-center px-5 py-2.5 rounded-lg text-sm font-medium bg-red-500 text-white hover:bg-red-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed";
@@ -337,7 +348,6 @@ pub fn StaffScanPage(locale: String) -> Element {
                 }
 
                 if let Some(err) = error_msg() { div { class: "bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm mb-4", "{err}" } }
-
                 if let Some(result) = scan_result() {
                     div { class: "space-y-4",
                         if result.mismatch {
@@ -381,5 +391,35 @@ pub fn StaffScanPage(locale: String) -> Element {
             }
             Footer {}
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn pending_action_is_accept() {
+        assert_eq!(status_action_label("Pending"), "Accept");
+    }
+
+    #[test]
+    fn accepted_action_is_start_prep() {
+        assert_eq!(status_action_label("Accepted"), "Start Prep");
+    }
+
+    #[test]
+    fn in_prep_action_is_mark_ready() {
+        assert_eq!(status_action_label("InPrep"), "Mark Ready");
+    }
+
+    #[test]
+    fn ready_action_is_mark_picked_up() {
+        assert_eq!(status_action_label("Ready"), "Mark Picked Up");
+    }
+
+    #[test]
+    fn canceled_has_no_action() {
+        assert_eq!(status_action_label("Canceled"), "No Action");
     }
 }

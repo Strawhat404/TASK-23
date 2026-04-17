@@ -211,4 +211,86 @@ mod tests {
         let first = &slots[0];
         assert!(!first.available, "slot at full capacity should be unavailable");
     }
+
+    // ── additional coverage ───────────────────────────────────────────────
+
+    #[test]
+    fn four_reservations_do_not_max_capacity() {
+        let hours = vec![make_store_hours(1, "09:00", "09:30", false)];
+        let date = NaiveDate::from_ymd_opt(2099, 4, 13).unwrap();
+        let slot_start = NaiveDateTime::new(date, NaiveTime::from_hms_opt(9, 0, 0).unwrap());
+        let slot_end = NaiveDateTime::new(date, NaiveTime::from_hms_opt(9, 15, 0).unwrap());
+
+        // 4 confirmed reservations — capacity (5) not yet reached.
+        let reservations: Vec<Reservation> = (0..4)
+            .map(|_| make_reservation(slot_start, slot_end, "Confirmed"))
+            .collect();
+
+        let slots = generate_pickup_slots(&hours, date, 0, &reservations);
+        assert!(slots[0].available, "capacity not yet hit → slot should be available");
+    }
+
+    #[test]
+    fn canceled_reservations_are_ignored_like_expired() {
+        let hours = vec![make_store_hours(1, "09:00", "09:30", false)];
+        let date = NaiveDate::from_ymd_opt(2099, 4, 13).unwrap();
+        let slot_start = NaiveDateTime::new(date, NaiveTime::from_hms_opt(9, 0, 0).unwrap());
+        let slot_end = NaiveDateTime::new(date, NaiveTime::from_hms_opt(9, 15, 0).unwrap());
+
+        let reservations: Vec<Reservation> = (0..5)
+            .map(|_| make_reservation(slot_start, slot_end, "Canceled"))
+            .collect();
+
+        let slots = generate_pickup_slots(&hours, date, 0, &reservations);
+        assert!(slots[0].available, "Canceled reservations must not block the slot");
+    }
+
+    #[test]
+    fn prep_time_blocks_near_term_slots_for_today() {
+        // Use today's date so the relative time check triggers.
+        let today = chrono::Local::now().date_naive();
+        let weekday = today.weekday().num_days_from_sunday() as u8;
+        let hours = vec![make_store_hours(weekday, "00:00", "23:45", false)];
+
+        // prep_time = 24h blocks EVERY slot today.
+        let slots = generate_pickup_slots(&hours, today, 24 * 60, &[]);
+        assert!(!slots.is_empty());
+        assert!(slots.iter().all(|s| !s.available), "all slots must be blocked by huge prep");
+    }
+
+    #[test]
+    fn slot_times_are_formatted_iso_like() {
+        let hours = vec![make_store_hours(1, "09:00", "09:30", false)];
+        let date = NaiveDate::from_ymd_opt(2099, 4, 13).unwrap();
+        let slots = generate_pickup_slots(&hours, date, 0, &[]);
+        assert_eq!(slots[0].start, "2099-04-13T09:00:00");
+        assert_eq!(slots[0].end, "2099-04-13T09:15:00");
+    }
+
+    #[test]
+    fn unparseable_hours_return_empty() {
+        let hours = vec![make_store_hours(1, "not-a-time", "also-bogus", false)];
+        let date = NaiveDate::from_ymd_opt(2099, 4, 13).unwrap();
+        let slots = generate_pickup_slots(&hours, date, 0, &[]);
+        assert!(slots.is_empty());
+    }
+
+    #[test]
+    fn is_slot_available_far_future_true() {
+        let far = chrono::Local::now().naive_local() + chrono::Duration::days(30);
+        assert!(is_slot_available(far, 15));
+    }
+
+    #[test]
+    fn is_slot_available_past_false() {
+        let past = chrono::Local::now().naive_local() - chrono::Duration::hours(1);
+        assert!(!is_slot_available(past, 0));
+    }
+
+    #[test]
+    fn is_slot_available_within_prep_window_false() {
+        // 5 minutes from now, with 15-minute prep requirement → unavailable.
+        let near = chrono::Local::now().naive_local() + chrono::Duration::minutes(5);
+        assert!(!is_slot_available(near, 15));
+    }
 }

@@ -102,3 +102,98 @@ pub async fn cleanup_expired_sessions(
 
     Ok(result.rows_affected())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use chrono::NaiveDate;
+
+    fn sample_dt() -> NaiveDateTime {
+        NaiveDate::from_ymd_opt(2026, 4, 15)
+            .unwrap()
+            .and_hms_opt(12, 0, 0)
+            .unwrap()
+    }
+
+    #[test]
+    fn session_row_construction() {
+        let row = SessionRow {
+            session_id: "sess-abc-123".to_string(),
+            user_id: 42,
+            last_activity: sample_dt(),
+            created_at: sample_dt(),
+            rotated_at: sample_dt(),
+        };
+        assert_eq!(row.session_id, "sess-abc-123");
+        assert_eq!(row.user_id, 42);
+    }
+
+    #[test]
+    fn session_row_field_types_are_correct() {
+        let row = SessionRow {
+            session_id: String::new(),
+            user_id: 0,
+            last_activity: sample_dt(),
+            created_at: sample_dt(),
+            rotated_at: sample_dt(),
+        };
+        // session_id is a String, user_id is i64, timestamps are NaiveDateTime
+        let _s: &str = &row.session_id;
+        let _id: i64 = row.user_id;
+        let _ts: NaiveDateTime = row.last_activity;
+        let _ts2: NaiveDateTime = row.created_at;
+        let _ts3: NaiveDateTime = row.rotated_at;
+    }
+
+    #[test]
+    fn session_row_clone() {
+        let row = SessionRow {
+            session_id: "sess-1".to_string(),
+            user_id: 7,
+            last_activity: sample_dt(),
+            created_at: sample_dt(),
+            rotated_at: sample_dt(),
+        };
+        let cloned = row.clone();
+        assert_eq!(cloned.session_id, row.session_id);
+        assert_eq!(cloned.user_id, row.user_id);
+    }
+
+    #[test]
+    fn session_row_debug_format() {
+        let row = SessionRow {
+            session_id: "s1".to_string(),
+            user_id: 1,
+            last_activity: sample_dt(),
+            created_at: sample_dt(),
+            rotated_at: sample_dt(),
+        };
+        let debug = format!("{:?}", row);
+        assert!(debug.contains("SessionRow"));
+        assert!(debug.contains("s1"));
+    }
+
+    #[test]
+    fn session_row_empty_session_id() {
+        let row = SessionRow {
+            session_id: String::new(),
+            user_id: 0,
+            last_activity: sample_dt(),
+            created_at: sample_dt(),
+            rotated_at: sample_dt(),
+        };
+        assert!(row.session_id.is_empty());
+    }
+
+    #[test]
+    fn session_row_large_user_id() {
+        let row = SessionRow {
+            session_id: "s".to_string(),
+            user_id: i64::MAX,
+            last_activity: sample_dt(),
+            created_at: sample_dt(),
+            rotated_at: sample_dt(),
+        };
+        assert_eq!(row.user_id, i64::MAX);
+    }
+}

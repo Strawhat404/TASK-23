@@ -105,3 +105,85 @@ pub async fn get_difficulty_breakdown(pool: &MySqlPool, user_id: i64) -> Vec<Dif
         })
         .collect()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn subject_score_construction() {
+        let ss = SubjectScore {
+            subject_id: 1,
+            subject_name: "Espresso Basics".to_string(),
+            avg_score: 88.5,
+            attempt_count: 10,
+        };
+        assert_eq!(ss.subject_id, 1);
+        assert_eq!(ss.subject_name, "Espresso Basics");
+        assert!((ss.avg_score - 88.5).abs() < 1e-9);
+        assert_eq!(ss.attempt_count, 10);
+    }
+
+    #[test]
+    fn subject_score_serde_round_trip() {
+        let ss = SubjectScore {
+            subject_id: 5,
+            subject_name: "Latte Art".to_string(),
+            avg_score: 72.0,
+            attempt_count: 3,
+        };
+        let json = serde_json::to_string(&ss).unwrap();
+        let back: SubjectScore = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.subject_id, 5);
+        assert!((back.avg_score - 72.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn difficulty_score_construction() {
+        let ds = DifficultyScore {
+            difficulty: "hard".to_string(),
+            avg_score: 65.0,
+            attempt_count: 7,
+        };
+        assert_eq!(ds.difficulty, "hard");
+        assert!((ds.avg_score - 65.0).abs() < 1e-9);
+        assert_eq!(ds.attempt_count, 7);
+    }
+
+    #[test]
+    fn difficulty_score_serde_round_trip() {
+        let ds = DifficultyScore {
+            difficulty: "easy".to_string(),
+            avg_score: 95.0,
+            attempt_count: 15,
+        };
+        let json = serde_json::to_string(&ds).unwrap();
+        let back: DifficultyScore = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.difficulty, "easy");
+        assert_eq!(back.attempt_count, 15);
+    }
+
+    #[test]
+    fn subject_score_zero_attempts() {
+        let ss = SubjectScore {
+            subject_id: 99,
+            subject_name: "Unused".to_string(),
+            avg_score: 0.0,
+            attempt_count: 0,
+        };
+        assert_eq!(ss.attempt_count, 0);
+        assert!((ss.avg_score - 0.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn difficulty_score_clone() {
+        let ds = DifficultyScore {
+            difficulty: "medium".to_string(),
+            avg_score: 80.0,
+            attempt_count: 5,
+        };
+        let cloned = ds.clone();
+        assert_eq!(cloned.difficulty, ds.difficulty);
+        assert_eq!(cloned.attempt_count, ds.attempt_count);
+    }
+}

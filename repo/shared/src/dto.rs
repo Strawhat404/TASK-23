@@ -507,4 +507,264 @@ mod tests {
         assert_eq!(parsed["total"], 100);
         assert_eq!(parsed["items"].as_array().unwrap().len(), 3);
     }
+
+    // ── extended DTO coverage ──────────────────────────────────────────────
+
+    #[test]
+    fn user_info_with_multiple_roles_round_trips() {
+        let ui = UserInfo {
+            id: 1,
+            username: "alice".into(),
+            display_name: Some("Alice".into()),
+            roles: vec!["Admin".into(), "Teacher".into()],
+            preferred_locale: "zh".into(),
+        };
+        let json = serde_json::to_string(&ui).unwrap();
+        let back: UserInfo = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.roles.len(), 2);
+        assert_eq!(back.preferred_locale, "zh");
+    }
+
+    #[test]
+    fn login_response_includes_session_cookie_and_user() {
+        let lr = LoginResponse {
+            session_cookie: "id.sig".into(),
+            user: UserInfo {
+                id: 1,
+                username: "u".into(),
+                display_name: None,
+                roles: vec!["Customer".into()],
+                preferred_locale: "en".into(),
+            },
+        };
+        let v = serde_json::to_value(&lr).unwrap();
+        assert_eq!(v["session_cookie"], "id.sig");
+        assert_eq!(v["user"]["username"], "u");
+    }
+
+    #[test]
+    fn product_detail_nests_option_groups() {
+        let pd = ProductDetail {
+            spu: ProductListItem {
+                spu_id: 1,
+                name_en: "Latte".into(),
+                name_zh: "\u{62ff}\u{94c1}".into(),
+                description_en: None,
+                description_zh: None,
+                category: None,
+                image_url: None,
+                base_price: 4.0,
+                prep_time_minutes: 5,
+            },
+            option_groups: vec![OptionGroupDetail {
+                id: 1,
+                name_en: "Size".into(),
+                name_zh: "\u{5c3a}\u{5bf8}".into(),
+                is_required: true,
+                options: vec![OptionValueDetail {
+                    id: 10,
+                    label_en: "Small".into(),
+                    label_zh: "\u{5c0f}".into(),
+                    price_delta: 0.0,
+                    is_default: true,
+                }],
+            }],
+        };
+        let json = serde_json::to_string(&pd).unwrap();
+        let back: ProductDetail = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.option_groups.len(), 1);
+        assert_eq!(back.option_groups[0].options[0].label_en, "Small");
+        assert!(back.option_groups[0].is_required);
+    }
+
+    #[test]
+    fn option_value_detail_equality() {
+        let a = OptionValueDetail {
+            id: 1,
+            label_en: "Oat".into(),
+            label_zh: "\u{71d5}\u{9ea6}".into(),
+            price_delta: 0.50,
+            is_default: false,
+        };
+        assert_eq!(a.clone(), a);
+    }
+
+    #[test]
+    fn checkout_response_contains_voucher_and_total() {
+        let cr = CheckoutResponse {
+            order_id: 99,
+            order_number: "ORD-99".into(),
+            voucher_code: "BF-ABCDEF".into(),
+            hold_expires_at: "2026-04-15T12:30:00".into(),
+            pickup_slot: "2026-04-15T12:15:00 - 12:30:00".into(),
+            total: 10.85,
+        };
+        let json = serde_json::to_value(&cr).unwrap();
+        assert_eq!(json["voucher_code"], "BF-ABCDEF");
+        assert_eq!(json["total"], 10.85);
+    }
+
+    #[test]
+    fn cart_response_with_zero_items() {
+        let cr = CartResponse {
+            items: vec![],
+            subtotal: 0.0,
+            tax_rate: 0.0875,
+            tax_amount: 0.0,
+            total: 0.0,
+        };
+        let v = serde_json::to_value(&cr).unwrap();
+        assert!(v["items"].as_array().unwrap().is_empty());
+        assert_eq!(v["tax_rate"], 0.0875);
+    }
+
+    #[test]
+    fn exam_question_detail_round_trips() {
+        let q = ExamQuestionDetail {
+            question_id: 1,
+            question_text_en: "What is espresso?".into(),
+            question_text_zh: None,
+            question_type: "single_choice".into(),
+            options: vec![
+                ExamOptionDetail {
+                    id: 1,
+                    label: "A".into(),
+                    content_en: "concentrated coffee".into(),
+                    content_zh: None,
+                },
+                ExamOptionDetail {
+                    id: 2,
+                    label: "B".into(),
+                    content_en: "a cappuccino".into(),
+                    content_zh: None,
+                },
+            ],
+        };
+        let back: ExamQuestionDetail =
+            serde_json::from_str(&serde_json::to_string(&q).unwrap()).unwrap();
+        assert_eq!(back.options.len(), 2);
+    }
+
+    #[test]
+    fn finish_exam_response_serializes_wrong_questions() {
+        let fer = FinishExamResponse {
+            attempt_id: 7,
+            score: 80.0,
+            total_questions: 10,
+            correct_count: 8,
+            wrong_questions: vec![WrongQuestionDetail {
+                question_id: 3,
+                question_text_en: "Stub".into(),
+                correct_options: vec!["A".into()],
+                your_options: vec!["B".into()],
+                explanation_en: Some("because A".into()),
+            }],
+        };
+        let json = serde_json::to_value(&fer).unwrap();
+        assert_eq!(json["score"], 80.0);
+        assert_eq!(json["wrong_questions"][0]["question_id"], 3);
+    }
+
+    #[test]
+    fn import_questions_response_zero_on_empty_csv() {
+        let r = ImportQuestionsResponse {
+            imported_count: 0,
+            skipped_count: 0,
+            errors: vec!["no rows".into()],
+        };
+        let json = serde_json::to_value(&r).unwrap();
+        assert_eq!(json["imported_count"], 0);
+        assert_eq!(json["errors"][0], "no rows");
+    }
+
+    #[test]
+    fn scan_voucher_response_valid_no_mismatch() {
+        let sr = ScanVoucherResponse {
+            valid: true,
+            order: None,
+            mismatch: false,
+            mismatch_reason: None,
+        };
+        let v = serde_json::to_value(&sr).unwrap();
+        assert_eq!(v["valid"], true);
+        assert_eq!(v["mismatch"], false);
+        assert!(v["order"].is_null());
+    }
+
+    #[test]
+    fn score_analytics_includes_breakdowns() {
+        let sa = ScoreAnalytics {
+            overall_score: 88.5,
+            by_subject: vec![SubjectScore {
+                subject_id: 1,
+                subject_name: "Espresso".into(),
+                avg_score: 90.0,
+                attempt_count: 5,
+            }],
+            by_difficulty: vec![DifficultyScore {
+                difficulty: "easy".into(),
+                avg_score: 95.0,
+                attempt_count: 3,
+            }],
+            recent_attempts: vec![AttemptSummary {
+                id: 1,
+                exam_title: "Espresso Basics".into(),
+                score: 100.0,
+                date: "2026-04-15".into(),
+                duration_minutes: Some(15),
+            }],
+        };
+        let json = serde_json::to_value(&sa).unwrap();
+        assert_eq!(json["overall_score"], 88.5);
+        assert_eq!(json["by_subject"][0]["avg_score"], 90.0);
+        assert_eq!(json["by_difficulty"][0]["difficulty"], "easy");
+    }
+
+    #[test]
+    fn generate_exam_request_allows_missing_difficulty() {
+        let json = r#"{
+            "title_en":"Quiz",
+            "question_count":10,
+            "time_limit_minutes":20
+        }"#;
+        let parsed: Result<GenerateExamRequest, _> = serde_json::from_str(json);
+        // Missing optional fields should not fail if they are Option<T> — but
+        // this struct has `subject_id: Option<i64>` without serde(default)
+        // wrapper, so Option still deserialises as None.
+        assert!(parsed.is_ok());
+        let req = parsed.unwrap();
+        assert!(req.subject_id.is_none());
+        assert!(req.difficulty.is_none());
+    }
+
+    #[test]
+    fn submit_answer_request_with_attempt_id() {
+        let json = r#"{"attempt_id":7,"question_id":99,"selected_option_ids":[101,102]}"#;
+        let req: SubmitAnswerRequest = serde_json::from_str(json).unwrap();
+        assert_eq!(req.attempt_id, Some(7));
+        assert_eq!(req.question_id, 99);
+        assert_eq!(req.selected_option_ids.len(), 2);
+    }
+
+    #[test]
+    fn add_to_cart_request_negative_quantity_still_parses() {
+        // The DTO alone does not enforce quantity bounds — route-level
+        // validation should catch them. Deserialisation must still succeed.
+        let json = r#"{"spu_id":1,"selected_options":[],"quantity":-1}"#;
+        let req: AddToCartRequest = serde_json::from_str(json).unwrap();
+        assert_eq!(req.quantity, -1);
+    }
+
+    #[test]
+    fn paginated_response_zero_items() {
+        let p: PaginatedResponse<i32> = PaginatedResponse {
+            items: vec![],
+            total: 0,
+            page: 1,
+            per_page: 20,
+        };
+        let v = serde_json::to_value(&p).unwrap();
+        assert_eq!(v["total"], 0);
+        assert_eq!(v["per_page"], 20);
+    }
 }

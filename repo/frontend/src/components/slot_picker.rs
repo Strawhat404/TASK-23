@@ -60,7 +60,7 @@ pub fn SlotPicker(
     }
 }
 
-fn format_slot_time(datetime_str: &str) -> String {
+pub(crate) fn format_slot_time(datetime_str: &str) -> String {
     if let Some(t_pos) = datetime_str.find('T') {
         let time_part = &datetime_str[t_pos + 1..];
         if time_part.len() >= 5 {
@@ -68,4 +68,32 @@ fn format_slot_time(datetime_str: &str) -> String {
         }
     }
     datetime_str.to_string()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn normal_iso_datetime() {
+        assert_eq!(format_slot_time("2026-04-16T14:30:00"), "14:30");
+    }
+
+    #[test]
+    fn no_t_separator_returns_original() {
+        let input = "2026-04-16 14:30:00";
+        assert_eq!(format_slot_time(input), input);
+    }
+
+    #[test]
+    fn short_time_part_returns_original() {
+        // Time part shorter than 5 chars
+        let input = "2026-04-16T14";
+        assert_eq!(format_slot_time(input), input);
+    }
+
+    #[test]
+    fn time_with_seconds_still_returns_hh_mm() {
+        assert_eq!(format_slot_time("2026-01-01T09:05:59"), "09:05");
+    }
 }

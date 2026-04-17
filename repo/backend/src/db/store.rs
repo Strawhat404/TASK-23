@@ -262,3 +262,55 @@ pub async fn get_reservations_for_date(pool: &MySqlPool, date: chrono::NaiveDate
         .map(row_to_reservation)
         .collect()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn sha256_hex_known_input() {
+        // SHA-256 of "hello" is well-known
+        let result = sha256_hex("hello");
+        assert_eq!(
+            result,
+            "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"
+        );
+    }
+
+    #[test]
+    fn sha256_hex_empty_string() {
+        let result = sha256_hex("");
+        assert_eq!(
+            result,
+            "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        );
+    }
+
+    #[test]
+    fn sha256_hex_unicode() {
+        let hash1 = sha256_hex("\u{4f60}\u{597d}");
+        // Must be a valid 64-char lowercase hex string
+        assert_eq!(hash1.len(), 64);
+        assert!(hash1.chars().all(|c| c.is_ascii_hexdigit()));
+    }
+
+    #[test]
+    fn sha256_hex_deterministic() {
+        let a = sha256_hex("BF-ABC123");
+        let b = sha256_hex("BF-ABC123");
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn sha256_hex_different_inputs_differ() {
+        let a = sha256_hex("abc");
+        let b = sha256_hex("def");
+        assert_ne!(a, b);
+    }
+
+    #[test]
+    fn sha256_hex_output_length_is_64() {
+        let result = sha256_hex("anything");
+        assert_eq!(result.len(), 64);
+    }
+}

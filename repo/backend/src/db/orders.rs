@@ -343,3 +343,117 @@ pub async fn get_fulfillment_events(pool: &MySqlPool, order_id: i64) -> Vec<Fulf
         })
         .collect()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn order_item_row_construction() {
+        let item = OrderItemRow {
+            id: 1,
+            order_id: 10,
+            sku_id: 100,
+            sku_code: "SKU-LATTE-SM".to_string(),
+            spu_name: "Latte".to_string(),
+            quantity: 2,
+            unit_price: 4.50,
+            item_total: 9.00,
+            options: vec!["Small".to_string(), "Oat Milk".to_string()],
+        };
+        assert_eq!(item.id, 1);
+        assert_eq!(item.order_id, 10);
+        assert_eq!(item.sku_id, 100);
+        assert_eq!(item.quantity, 2);
+    }
+
+    #[test]
+    fn order_item_row_total_matches_unit_price_times_quantity() {
+        let quantity = 3;
+        let unit_price = 5.25;
+        let item_total = unit_price * quantity as f64;
+        let item = OrderItemRow {
+            id: 1,
+            order_id: 1,
+            sku_id: 1,
+            sku_code: "SKU-1".to_string(),
+            spu_name: "Espresso".to_string(),
+            quantity,
+            unit_price,
+            item_total,
+            options: vec![],
+        };
+        assert!((item.item_total - (item.unit_price * item.quantity as f64)).abs() < 1e-9);
+    }
+
+    #[test]
+    fn order_item_row_single_quantity() {
+        let item = OrderItemRow {
+            id: 2,
+            order_id: 5,
+            sku_id: 20,
+            sku_code: "SKU-20".to_string(),
+            spu_name: "Mocha".to_string(),
+            quantity: 1,
+            unit_price: 6.00,
+            item_total: 6.00,
+            options: vec!["Large".to_string()],
+        };
+        assert!((item.item_total - item.unit_price).abs() < 1e-9);
+    }
+
+    #[test]
+    fn order_item_row_serializes_to_json() {
+        let item = OrderItemRow {
+            id: 1,
+            order_id: 2,
+            sku_id: 3,
+            sku_code: "SKU-3".to_string(),
+            spu_name: "Americano".to_string(),
+            quantity: 1,
+            unit_price: 3.50,
+            item_total: 3.50,
+            options: vec!["Hot".to_string()],
+        };
+        let json = serde_json::to_value(&item).unwrap();
+        assert_eq!(json["sku_code"], "SKU-3");
+        assert_eq!(json["spu_name"], "Americano");
+        assert_eq!(json["item_total"], 3.50);
+        assert_eq!(json["options"][0], "Hot");
+    }
+
+    #[test]
+    fn order_item_row_empty_options() {
+        let item = OrderItemRow {
+            id: 1,
+            order_id: 1,
+            sku_id: 1,
+            sku_code: "S".to_string(),
+            spu_name: "T".to_string(),
+            quantity: 1,
+            unit_price: 1.0,
+            item_total: 1.0,
+            options: vec![],
+        };
+        assert!(item.options.is_empty());
+    }
+
+    #[test]
+    fn order_item_row_clone_preserves_values() {
+        let item = OrderItemRow {
+            id: 7,
+            order_id: 3,
+            sku_id: 15,
+            sku_code: "SKU-15".to_string(),
+            spu_name: "Tea".to_string(),
+            quantity: 4,
+            unit_price: 2.00,
+            item_total: 8.00,
+            options: vec!["Iced".to_string()],
+        };
+        let cloned = item.clone();
+        assert_eq!(cloned.id, item.id);
+        assert_eq!(cloned.item_total, item.item_total);
+        assert_eq!(cloned.options, item.options);
+    }
+}

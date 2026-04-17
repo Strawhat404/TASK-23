@@ -9,6 +9,11 @@ use shared::models::SalesTaxConfig;
 
 const BTN_SM: &str = "inline-flex items-center justify-center w-8 h-8 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer";
 
+/// Computes the display price string (base + delta) formatted to 2 decimal places.
+pub(crate) fn computed_price(base: f64, delta: f64) -> String {
+    format!("{:.2}", base + delta)
+}
+
 #[component]
 pub fn ProductDetailPage(locale: String, id: i64) -> Element {
     let t = shared::i18n::init_translations();
@@ -170,5 +175,25 @@ pub fn ProductDetailPage(locale: String, id: i64) -> Element {
             }
             Footer {}
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn base_only() {
+        assert_eq!(computed_price(5.00, 0.0), "5.00");
+    }
+
+    #[test]
+    fn with_positive_delta() {
+        assert_eq!(computed_price(5.00, 1.50), "6.50");
+    }
+
+    #[test]
+    fn with_negative_delta() {
+        assert_eq!(computed_price(5.00, -0.50), "4.50");
     }
 }

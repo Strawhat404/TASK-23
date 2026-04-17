@@ -7,6 +7,11 @@ use shared::dto::{ApiResponse, CartResponse};
 
 const QTY_BTN: &str = "inline-flex items-center justify-center w-8 h-8 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer";
 
+/// Returns true when the cart item count indicates an empty cart.
+pub(crate) fn is_cart_empty(count: i32) -> bool {
+    count <= 0
+}
+
 #[component]
 pub fn CartPage(locale: String) -> Element {
     let t = shared::i18n::init_translations();
@@ -142,5 +147,26 @@ pub fn CartPage(locale: String) -> Element {
             }
             Footer {}
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn zero_is_empty() {
+        assert!(is_cart_empty(0));
+    }
+
+    #[test]
+    fn positive_is_not_empty() {
+        assert!(!is_cart_empty(1));
+        assert!(!is_cart_empty(5));
+    }
+
+    #[test]
+    fn negative_is_empty() {
+        assert!(is_cart_empty(-1));
     }
 }

@@ -4,6 +4,11 @@ use crate::components::footer::Footer;
 use crate::components::price_display::PriceDisplay;
 use shared::dto::{ApiResponse, ProductListItem};
 
+/// Returns the appropriate product display name for the given locale.
+pub(crate) fn product_display_name<'a>(name_en: &'a str, name_zh: &'a str, locale: &str) -> &'a str {
+    if locale == "zh" { name_zh } else { name_en }
+}
+
 #[component]
 pub fn MenuPage(locale: String) -> Element {
     let t = shared::i18n::init_translations();
@@ -126,5 +131,25 @@ pub fn MenuPage(locale: String) -> Element {
 
             Footer {}
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn en_returns_english_name() {
+        assert_eq!(product_display_name("Latte", "\u{62ff}\u{94c1}", "en"), "Latte");
+    }
+
+    #[test]
+    fn zh_returns_chinese_name() {
+        assert_eq!(product_display_name("Latte", "\u{62ff}\u{94c1}", "zh"), "\u{62ff}\u{94c1}");
+    }
+
+    #[test]
+    fn unknown_locale_defaults_to_english() {
+        assert_eq!(product_display_name("Latte", "\u{62ff}\u{94c1}", "fr"), "Latte");
     }
 }

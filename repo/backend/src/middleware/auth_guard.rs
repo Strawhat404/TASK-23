@@ -196,3 +196,141 @@ impl<'r> FromRequest<'r> for TeacherGuard {
     }
 }
 
+// ---------------------------------------------------------------------------
+// Role-check helpers (pure, testable without Rocket runtime)
+// ---------------------------------------------------------------------------
+
+/// Check whether the given roles satisfy the Staff guard requirement.
+pub fn has_staff_access(roles: &[String]) -> bool {
+    roles.iter().any(|r| r == "Staff" || r == "Admin")
+}
+
+/// Check whether the given roles satisfy the Admin guard requirement.
+pub fn has_admin_access(roles: &[String]) -> bool {
+    roles.iter().any(|r| r == "Admin")
+}
+
+/// Check whether the given roles satisfy the Teacher guard requirement.
+pub fn has_teacher_access(roles: &[String]) -> bool {
+    roles.iter().any(|r| r == "Teacher" || r == "AcademicAffairs" || r == "Admin")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn roles(list: &[&str]) -> Vec<String> {
+        list.iter().map(|s| s.to_string()).collect()
+    }
+
+    // ── has_staff_access ────────────────────────────────────────────────
+
+    #[test]
+    fn staff_access_granted_for_staff_role() {
+        assert!(has_staff_access(&roles(&["Staff"])));
+    }
+
+    #[test]
+    fn staff_access_granted_for_admin_role() {
+        assert!(has_staff_access(&roles(&["Admin"])));
+    }
+
+    #[test]
+    fn staff_access_denied_for_customer() {
+        assert!(!has_staff_access(&roles(&["Customer"])));
+    }
+
+    #[test]
+    fn staff_access_denied_for_teacher() {
+        assert!(!has_staff_access(&roles(&["Teacher"])));
+    }
+
+    #[test]
+    fn staff_access_granted_with_mixed_roles() {
+        assert!(has_staff_access(&roles(&["Customer", "Staff"])));
+    }
+
+    // ── has_admin_access ────────────────────────────────────────────────
+
+    #[test]
+    fn admin_access_granted_for_admin_only() {
+        assert!(has_admin_access(&roles(&["Admin"])));
+    }
+
+    #[test]
+    fn admin_access_denied_for_staff() {
+        assert!(!has_admin_access(&roles(&["Staff"])));
+    }
+
+    #[test]
+    fn admin_access_denied_for_customer() {
+        assert!(!has_admin_access(&roles(&["Customer"])));
+    }
+
+    #[test]
+    fn admin_access_denied_for_empty_roles() {
+        assert!(!has_admin_access(&roles(&[])));
+    }
+
+    // ── has_teacher_access ──────────────────────────────────────────────
+
+    #[test]
+    fn teacher_access_for_teacher_role() {
+        assert!(has_teacher_access(&roles(&["Teacher"])));
+    }
+
+    #[test]
+    fn teacher_access_for_academic_affairs() {
+        assert!(has_teacher_access(&roles(&["AcademicAffairs"])));
+    }
+
+    #[test]
+    fn teacher_access_for_admin() {
+        assert!(has_teacher_access(&roles(&["Admin"])));
+    }
+
+    #[test]
+    fn teacher_access_denied_for_staff() {
+        assert!(!has_teacher_access(&roles(&["Staff"])));
+    }
+
+    #[test]
+    fn teacher_access_denied_for_customer() {
+        assert!(!has_teacher_access(&roles(&["Customer"])));
+    }
+
+    #[test]
+    fn teacher_access_denied_for_empty_roles() {
+        assert!(!has_teacher_access(&roles(&[])));
+    }
+
+    // ── Claims struct ───────────────────────────────────────────────────
+
+    #[test]
+    fn claims_struct_holds_roles() {
+        let c = Claims {
+            sub: 1,
+            username: "admin".into(),
+            roles: vec!["Admin".into(), "Staff".into()],
+            exp: 0,
+        };
+        assert!(has_admin_access(&c.roles));
+        assert!(has_staff_access(&c.roles));
+        assert!(has_teacher_access(&c.roles));
+    }
+
+    #[test]
+    fn claims_serde_round_trip() {
+        let c = Claims {
+            sub: 42,
+            username: "bob".into(),
+            roles: vec!["Teacher".into()],
+            exp: 9999,
+        };
+        let json = serde_json::to_string(&c).unwrap();
+        let back: Claims = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.sub, 42);
+        assert_eq!(back.roles, vec!["Teacher"]);
+    }
+}
+

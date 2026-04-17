@@ -7,6 +7,11 @@ use crate::components::hold_timer::HoldTimer;
 use crate::state::AppState;
 use shared::dto::{ApiResponse, CartResponse, CheckoutRequest, CheckoutResponse, PickupSlot};
 
+/// Formats the pickup window as "start - end".
+pub(crate) fn format_pickup_window(start: &str, end: &str) -> String {
+    format!("{} - {}", start, end)
+}
+
 #[component]
 pub fn CheckoutPage(locale: String) -> Element {
     let t = shared::i18n::init_translations();
@@ -209,5 +214,28 @@ pub fn CheckoutPage(locale: String) -> Element {
             }
             Footer {}
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn format_pickup_window_basic() {
+        assert_eq!(format_pickup_window("14:00", "14:30"), "14:00 - 14:30");
+    }
+
+    #[test]
+    fn format_pickup_window_full_datetime() {
+        assert_eq!(
+            format_pickup_window("2026-04-16T14:00:00", "2026-04-16T14:30:00"),
+            "2026-04-16T14:00:00 - 2026-04-16T14:30:00"
+        );
+    }
+
+    #[test]
+    fn format_pickup_window_empty_strings() {
+        assert_eq!(format_pickup_window("", ""), " - ");
     }
 }

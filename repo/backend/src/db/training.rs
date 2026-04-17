@@ -248,3 +248,162 @@ fn row_to_wrong_entry(r: sqlx::mysql::MySqlRow) -> WrongAnswerEntry {
         review_interval_days: r.get("review_interval_days"),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use chrono::NaiveDate;
+
+    fn sample_dt() -> chrono::NaiveDateTime {
+        NaiveDate::from_ymd_opt(2026, 4, 15)
+            .unwrap()
+            .and_hms_opt(12, 0, 0)
+            .unwrap()
+    }
+
+    // ── ExamAttempt ──────────────────────────────────────────────────────
+
+    #[test]
+    fn exam_attempt_construction() {
+        let a = ExamAttempt {
+            id: 1,
+            user_id: 10,
+            exam_version_id: 5,
+            started_at: sample_dt(),
+            finished_at: None,
+            score: None,
+            total_questions: 20,
+            correct_count: 0,
+            status: "InProgress".to_string(),
+        };
+        assert_eq!(a.id, 1);
+        assert_eq!(a.user_id, 10);
+        assert_eq!(a.status, "InProgress");
+        assert!(a.finished_at.is_none());
+        assert!(a.score.is_none());
+    }
+
+    #[test]
+    fn exam_attempt_completed_round_trip() {
+        let a = ExamAttempt {
+            id: 7,
+            user_id: 3,
+            exam_version_id: 2,
+            started_at: sample_dt(),
+            finished_at: Some(sample_dt()),
+            score: Some(85.0),
+            total_questions: 20,
+            correct_count: 17,
+            status: "Completed".to_string(),
+        };
+        let json = serde_json::to_string(&a).unwrap();
+        let back: ExamAttempt = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.id, 7);
+        assert_eq!(back.correct_count, 17);
+        assert!((back.score.unwrap() - 85.0).abs() < 1e-9);
+        assert_eq!(back.status, "Completed");
+    }
+
+    #[test]
+    fn exam_attempt_score_proportion() {
+        let a = ExamAttempt {
+            id: 1,
+            user_id: 1,
+            exam_version_id: 1,
+            started_at: sample_dt(),
+            finished_at: Some(sample_dt()),
+            score: Some(80.0),
+            total_questions: 10,
+            correct_count: 8,
+            status: "Completed".to_string(),
+        };
+        let expected = (a.correct_count as f64 / a.total_questions as f64) * 100.0;
+        assert!((a.score.unwrap() - expected).abs() < 1e-9);
+    }
+
+    // ── AttemptAnswer ────────────────────────────────────────────────────
+
+    #[test]
+    fn attempt_answer_construction() {
+        let ans = AttemptAnswer {
+            id: 1,
+            attempt_id: 5,
+            question_id: 10,
+            selected_option_ids: Some("[1,3]".to_string()),
+            is_correct: Some(true),
+            answered_at: Some(sample_dt()),
+        };
+        assert_eq!(ans.attempt_id, 5);
+        assert_eq!(ans.question_id, 10);
+        assert!(ans.is_correct.unwrap());
+    }
+
+    #[test]
+    fn attempt_answer_serde_round_trip() {
+        let ans = AttemptAnswer {
+            id: 2,
+            attempt_id: 3,
+            question_id: 7,
+            selected_option_ids: None,
+            is_correct: None,
+            answered_at: None,
+        };
+        let json = serde_json::to_string(&ans).unwrap();
+        let back: AttemptAnswer = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.id, 2);
+        assert!(back.selected_option_ids.is_none());
+        assert!(back.is_correct.is_none());
+    }
+
+    // ── WrongAnswerEntry ─────────────────────────────────────────────────
+
+    #[test]
+    fn wrong_answer_entry_construction() {
+        let w = WrongAnswerEntry {
+            id: 1,
+            user_id: 5,
+            question_id: 20,
+            wrong_count: 3,
+            last_wrong_at: Some(sample_dt()),
+            next_review_at: Some(sample_dt()),
+            review_interval_days: 2,
+        };
+        assert_eq!(w.wrong_count, 3);
+        assert_eq!(w.review_interval_days, 2);
+        assert!(w.last_wrong_at.is_some());
+    }
+
+    #[test]
+    fn wrong_answer_entry_serde_round_trip() {
+        let w = WrongAnswerEntry {
+            id: 10,
+            user_id: 1,
+            question_id: 50,
+            wrong_count: 7,
+            last_wrong_at: None,
+            next_review_at: None,
+            review_interval_days: 1,
+        };
+        let json = serde_json::to_string(&w).unwrap();
+        let back: WrongAnswerEntry = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.id, 10);
+        assert_eq!(back.wrong_count, 7);
+        assert!(back.last_wrong_at.is_none());
+    }
+
+    #[test]
+    fn wrong_answer_entry_clone() {
+        let w = WrongAnswerEntry {
+            id: 1,
+            user_id: 1,
+            question_id: 1,
+            wrong_count: 1,
+            last_wrong_at: None,
+            next_review_at: None,
+            review_interval_days: 1,
+        };
+        let cloned = w.clone();
+        assert_eq!(cloned.id, w.id);
+        assert_eq!(cloned.wrong_count, w.wrong_count);
+    }
+}
